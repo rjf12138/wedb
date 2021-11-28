@@ -1,8 +1,9 @@
 {
 	"AssociatedProject": [
-		"gtest"
-	],
-	"ChooseCompiler": [
+		"gtest",
+		"basic",
+		"system"
+	],"ChooseCompiler": [
 		{
 			"CompilerName": "g++",
 			"DebugOption": "-O0 -Wall -g -ggdb -std=c++11",
