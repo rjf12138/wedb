@@ -1,0 +1,31 @@
+5. A WAIT-FREE ALGORITHM
+	在这一小节，我们通过扩展 lock-free 哈希集合算法来实现一个 wait-free 哈希集合算法。
+wait-free 哈希集合算法假设 wait-free FSet 实现是存在的。我们先说明wait-free
+算法的主要挑战。回想起我们的 lock-free 哈希集合算法，FSet 对象们只被要求是lock-free的。
+现在假定一种wait-free FSet 实现是可以获得的， 那么这个算法是否立刻变成wait-free的？
+答案是消极的：下面有个例子会显示，由于并行的 RESIZE 操作 ，一个 APPLY 操作可能永远不会完成。
+     线程 p 试图插入一些值 k 到哈希集合中，停在了 INVOKE 操作上（代码36行）。t 是 HNode 链表的
+头部，b 是线程 p 想要执行插入操作对应的桶。现在另一个线程 q 完成 INSERT 操作， 该操作触发了哈希集合上
+的 RESIZE 操作，之后一个新的对象 t' 成为了 HNode 链表的头。现在假定 q 插入相同的 k 到哈希集合中，因为
+t' 所有的桶都是 nil, 线程 q 调用 INITBUCKET 去初始化 t' 对应的桶，然后冻结t' 前置节点t所对应的桶 b。
+当线程 p 继续运行，由于 b 被冻结，调用 INVOKE 操作会失败。线程 p 会在循环里不停调用 APPLY 操作，形成死循环。
+通过交替移除和插入k和q，上述过程会一直重复，使得p的APPLY操作永远不会完成。
+
+5.1 A Wait-free Implementation of Apply
+	我们提供了 APPLY 操作的一种 wait-free 实现在图4。其基本思想是让线程们互相帮助来完成 APPLY 操作，而不是
+不断的竞争修改或是冻结桶。
+	在 wait-free 算法中，一个插入或是删除操作使用 WFOP 对象，WFOP 对象由 FSETOP 对象加上一个 prio 域组成。
+prio 域表示操作的优先级。prio 域规定了在互助机制中操作的优先级：prio 较小的操作优先于 prio 较大的操作。
+优先级操作通过一个不断增长的计数器生成的（初始时为0），实现是通过一个原子性的 fetch-and-increment 指令完成的。
+	在 APPLY 操作内，线程 p 为修改操作第一次创建一个 WFOP 对象并绑定一个独一无二的优先级。然后将对象放到shared
+arry A 中，索引是 p 的线程id。线程 p 遍历 A， 然后对于任何线程 q 声明的（包括 p 本身）操作 op，如果 op.prio 小于或是等于
+p 最近的优先级，p 帮助 q 来完成（行 59 到 64）。最终， p 在自己的操作内调用 GETRESPONSE 来获取返回值。
+
+5.2 Wait Freedom
+	首先，观察到 CONTAINS 是 wait-free 的， 它不具有任何循环并且调用的 HASMEMBER 也是 wait-free 的。为了证明 INSERT 和 REMOVE
+是 wait-free 的。 我们通过 T 个线程，内部的循环（58行）最多执行 T 次迭代。对于线程 p 在 63行处的 INVOKE 将返回 false
+HNode 必须在p 的 59 到 63 行间改变，当头部节点的每个桶都不是冻结状态。头部的改变必须由一些RESIZE的第28行的一个步骤进行，
+表示外层INSERT或REMOVE操作完成。while 循环 T 次之后，一些线程至少在两次 INSERT 或者 REMOVE 操作后完成，第二个线程必须
+要有一个 OPp 更低（更高）的优先级。因此，OPp.done 必须被设置为 true, 线程 p 的 INVOKE 在下次迭代时会返回 true。所以APPLY
+操作是 wait-free 的，每一个花费O(T^2) FSet 操作。
+	
