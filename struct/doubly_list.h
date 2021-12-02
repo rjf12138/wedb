@@ -1,6 +1,6 @@
 ﻿#ifndef __DOUBLY_LIST__
 #define __DOUBLY_LIST__
-#include "basic_header.h"
+#include "basic/basic_head.h"
 
 template<typename V>
 struct DoublyListNode {
@@ -25,15 +25,15 @@ public:
 		~Iterator(void);
 
 		V& operator*();
-		Bool operator==(const Iterator& rhs);
-		Bool operator!=(const Iterator& rhs);
+		bool operator==(const Iterator& rhs);
+		bool operator!=(const Iterator& rhs);
 		Iterator& operator=(const Iterator& rhs);
 
 		Iterator& operator++();
-		Iterator operator++(Int32); // 后置
+		Iterator operator++(int32_t); // 后置
 
 		Iterator& operator--();
-		Iterator operator--(Int32); // 前置
+		Iterator operator--(int32_t); // 前置
 
 	private:
 		const DoublyList* list_;
@@ -43,18 +43,18 @@ public:
 	Iterator begin(void);
 	Iterator end(void);
 
-	Int32 push_back(const V& value);
-	Int32 insert_front(const Iterator& iter, const V& value);
-	Int32 insert_back(const Iterator& iter, const V& value);
-	Int32 erase(const Iterator& iter);
-	Int32 clear(void);
-	UInt32 size(void) const;
+	int32_t push_back(const V& value);
+	int32_t insert_front(const Iterator& iter, const V& value);
+	int32_t insert_back(const Iterator& iter, const V& value);
+	int32_t erase(const Iterator& iter);
+	int32_t clear(void);
+	uint32_t size(void) const;
 
 private:
 	DoublyListNode<V>* get_node(const Iterator& iter);
 
 private:
-	UInt32 size_;
+	uint32_t size_;
 	DoublyListNode<V> head_;
 	DoublyListNode<V> tail_;
 };
@@ -74,13 +74,13 @@ DoublyList<V>::~DoublyList(void)
 }
 
 template <typename V>
-UInt32 DoublyList<V>::size(void) const
+uint32_t DoublyList<V>::size(void) const
 {
 	return size_;
 }
 
 template <typename V>
-Int32 DoublyList<V>::clear(void)
+int32_t DoublyList<V>::clear(void)
 {
 	DoublyList<V>::Iterator iter = this->begin();
 	while (iter != this->end()) {
@@ -120,7 +120,7 @@ DoublyListNode<V>* DoublyList<V>::get_node(const Iterator& iter)
 }
 
 template <typename V>
-Int32 DoublyList<V>::push_back(const V& value)
+int32_t DoublyList<V>::push_back(const V& value)
 {
 	DoublyListNode<V>* new_node = new DoublyListNode<V>(value, tail_.prev, &tail_);
 	tail_.prev->next = new_node;
@@ -131,7 +131,7 @@ Int32 DoublyList<V>::push_back(const V& value)
 }
 
 template <typename V>
-Int32 DoublyList<V>::insert_front(const Iterator& iter, const V& value)
+int32_t DoublyList<V>::insert_front(const Iterator& iter, const V& value)
 {
 	DoublyListNode<V>* curr_node = this->get_node(iter);
 	if (curr_node == nullptr || curr_node == &head_) {
@@ -147,7 +147,7 @@ Int32 DoublyList<V>::insert_front(const Iterator& iter, const V& value)
 }
 
 template <typename V>
-Int32 DoublyList<V>::insert_back(const Iterator& iter, const V& value)
+int32_t DoublyList<V>::insert_back(const Iterator& iter, const V& value)
 {
 	DoublyListNode<V>* curr_node = this->get_node(iter);
 	if (curr_node == nullptr || curr_node == &tail_) {
@@ -163,7 +163,7 @@ Int32 DoublyList<V>::insert_back(const Iterator& iter, const V& value)
 }
 
 template <typename V>
-Int32 DoublyList<V>::erase(const Iterator& iter)
+int32_t DoublyList<V>::erase(const Iterator& iter)
 {
 	DoublyListNode<V>* curr_node = this->get_node(iter);
 	if (curr_node == nullptr || curr_node == &head_ || curr_node == &tail_) {
@@ -210,7 +210,7 @@ V& DoublyList<V>::Iterator::operator*()
 }
 
 template <typename V>
-Bool DoublyList<V>::Iterator::operator==(const DoublyList<V>::Iterator& rhs)
+bool DoublyList<V>::Iterator::operator==(const DoublyList<V>::Iterator& rhs)
 {
 	if (list_ == nullptr || node_ == nullptr) {
 		return False;
@@ -224,7 +224,7 @@ Bool DoublyList<V>::Iterator::operator==(const DoublyList<V>::Iterator& rhs)
 }
 
 template <typename V>
-Bool DoublyList<V>::Iterator::operator!=(const DoublyList<V>::Iterator& rhs)
+bool DoublyList<V>::Iterator::operator!=(const DoublyList<V>::Iterator& rhs)
 {
 	return !(*this == rhs);
 }
@@ -254,14 +254,14 @@ DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator++()
 }
 
 template <typename V>
-DoublyList<V>::Iterator DoublyList<V>::Iterator::operator++(Int32)
+DoublyList<V>::Iterator DoublyList<V>::Iterator::operator++(int32_t)
 {
 	if (list_ == nullptr || node_ == nullptr) {
-		throw std::runtime_error("DoublyList<V>::Iterator::operator++(Int32): Iterator not pointer any DoublyList node.");
+		throw std::runtime_error("DoublyList<V>::Iterator::operator++(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
 	if (node_ == &list_->head_ || node_ == &list->tail_) {
-		throw std::runtime_error("DoublyList<V>::Iterator::operator++(Int32): Iterator not pointer any DoublyList node.");
+		throw std::runtime_error("DoublyList<V>::Iterator::operator++(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
 	Iterator tmp = *this;
@@ -286,14 +286,14 @@ DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator--()
 }
 
 template <typename V>
-DoublyList<V>::Iterator DoublyList<V>::Iterator::operator--(Int32)
+DoublyList<V>::Iterator DoublyList<V>::Iterator::operator--(int32_t)
 {
 	if (list_ == nullptr || node_ == nullptr) {
-		throw std::runtime_error("DoublyList<V>::Iterator::operator--(Int32): Iterator not pointer any DoublyList node.");
+		throw std::runtime_error("DoublyList<V>::Iterator::operator--(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
 	if (node_ == &list_->head_ || node_ == &list->tail_) {
-		throw std::runtime_error("DoublyList<V>::Iterator::operator--(Int32): Iterator not pointer any DoublyList node.");
+		throw std::runtime_error("DoublyList<V>::Iterator::operator--(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
 	Iterator tmp = *this;

@@ -1,10 +1,10 @@
 ﻿#pragma once
-#include "basic_header.h"
+#include "basic/basic_head.h"
 #define MAX_LEVEL   32
 
 template<typename K>
 struct Compare {
-	Int32 operator()(K key1, K key2) {
+	int32_t operator()(K key1, K key2) {
 		if (key1 > key2) {
 			return 1;
 		}
@@ -30,17 +30,17 @@ public:
 	SkipList(void);
 	virtual ~SkipList(void);
 
-	Int32 get(K key, V& value);
-	Int32 erase(K key);
+	int32_t get(K key, V& value);
+	int32_t erase(K key);
 
-	Int32 put(K key, V value);
-	Int32 size(void);
-
-private:
-	Int8 random_height(void);
+	int32_t put(K key, V value);
+	int32_t size(void);
 
 private:
-	Int32 size_;
+	int8_t random_height(void);
+
+private:
+	int32_t size_;
 	Comparator compare_;
 	SkipListNode<K, V> header_;
 	SkipListNode<K, V> tail_;
@@ -51,7 +51,7 @@ SkipList<K, V, Comparator>::SkipList(void)
 	:size_(0)
 {
 	header_.level = MAX_LEVEL;
-	for (Int32 i = 0; i <= header_.level; ++i) {
+	for (int32_t i = 0; i <= header_.level; ++i) {
 		header_.next[i] = &tail_;
 	}
 }
@@ -68,7 +68,7 @@ SkipList<K, V, Comparator>::~SkipList(void)
 }
 
 template<typename K, typename V, class Comparator>
-Int32 SkipList<K, V, Comparator>::get(K key, V& value)
+int32_t SkipList<K, V, Comparator>::get(K key, V& value)
 {
 	Int8 level = header_.level;
 	SkipListNode<K, V>* ptr = &header_;
@@ -94,7 +94,7 @@ Int32 SkipList<K, V, Comparator>::get(K key, V& value)
 }
 
 template<typename K, typename V, class Comparator>
-Int32 SkipList<K, V, Comparator>::put(K key, V value)
+int32_t SkipList<K, V, Comparator>::put(K key, V value)
 {
 	Int8 level = header_.level;
 	SkipListNode<K, V>* ptr = &header_;
@@ -125,7 +125,7 @@ Int32 SkipList<K, V, Comparator>::put(K key, V value)
 		}
 	}
 
-	for (Int32 i = new_node->level; i >= 0; --i) {
+	for (int32_t i = new_node->level; i >= 0; --i) {
 		SkipListNode<K, V>* tmp_ptr = new_node->next[i];
 		if (tmp_ptr != &tail_) {
 			new_node->next[i] = tmp_ptr->next[i];
@@ -141,7 +141,7 @@ Int32 SkipList<K, V, Comparator>::put(K key, V value)
 }
 
 template<typename K, typename V, class Comparator>
-Int32 SkipList<K, V, Comparator>::erase(K key)
+int32_t SkipList<K, V, Comparator>::erase(K key)
 {
 	Int8 level = header_.level;
 	SkipListNode<K, V>* ptr = &header_, * remove_ptr = nullptr;
@@ -176,16 +176,16 @@ Int32 SkipList<K, V, Comparator>::erase(K key)
 }
 
 template<typename K, typename V, class Comparator>
-Int32 SkipList<K, V, Comparator>::size(void)
+int32_t SkipList<K, V, Comparator>::size(void)
 {
 	return size_;
 }
 
 template<typename K, typename V, class Comparator>
-Int8 SkipList<K, V, Comparator>::random_height(void)
+int8_t SkipList<K, V, Comparator>::random_height(void)
 {
 	Int8 height = 0;
-	for (Int32 i = 0; i < MAX_LEVEL; ++i) {
+	for (int32_t i = 0; i < MAX_LEVEL; ++i) {
 		if (rand() % 2 == 1) {
 			++height;
 		}
