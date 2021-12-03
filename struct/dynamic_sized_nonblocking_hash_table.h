@@ -7,9 +7,23 @@ enum FSetOpType {
     FSetOpType_Rem,
 };
 
+struct SValue {
+    bool is_vaild;
+    int value;
+
+    int hash_function(int seed) {
+        return value % seed;
+    }
+
+    SValue(void)
+    :is_vaild(false),
+    value(0)
+    {}
+};
+
 struct FSetOp {
     FSetOpType type;    // 操作类型
-    int key;            // 关键字
+    SValue key;            // 关键字
     bool done;          // 操作是否完成
     bool resp;          // 结果返回，如果操作的确进行了设为true,反之false
                         // 比如进行插入操作，值之前已经存在则为false，不存在为true
@@ -23,7 +37,15 @@ public:
     ~FSet(void){}
 
     bool get_response(FSetOp op) {return op.resp;}
-    bool has_member(int k) {return data_.find(k) != data_.end();}
+    bool has_member(SValue key) {
+        for (auto iter = data_.begin(); iter != data_.end(); ++iter) {
+            if (iter->is_vaild == true && key.value == iter->value) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool invoke(FSetOp op) {
         if (ok && !op.done) {
             if (op.type == FSetOpType_Ins) {
@@ -45,8 +67,9 @@ public:
     }
 
     int size(void) {return data_.size();}
+    
 private:
-    std::set<int> data_;
+    std::set<SValue> data_;
     bool ok;
 };
 
@@ -64,11 +87,57 @@ class LockFreeDSHSet {
 public:
     LockFreeDSHSet(void) 
     :head_ptr(nullptr) {
-        
+        head_ptr = new HNode;
+        head_ptr->buckets_.push_back(FSet());
     }
     ~LockFreeDSHSet(void) {}
 
+    bool insert(int k) {
 
+    }
+
+    bool remove(int k) {
+
+    }
+
+    bool contains(SValue k) {
+        FSet &tset = head_ptr->buckets_[k.hash_function(head_ptr->buckets_.size())];
+        if (tset.size() == 0) {
+            HNode *pred_ptr = head_ptr->pred_ptr;
+            if (pred_ptr != nullptr) {
+                tset = pred_ptr->buckets_[k.hash_function(pred_ptr->buckets_.size())];
+            }
+        }
+
+        return tset.has_member(k);
+    }
+
+    void resize(bool grow) {
+        if (head_ptr->buckets_.size() > 1 && grow == true) {
+
+        }
+    }
+    // ∧ 口朝下是 and
+    FSet init_bucket(int pos) {
+        FSet &tset = head_ptr->buckets_[pos];
+        HNode *pred_ptr = head_ptr->pred_ptr;
+        if (tset.size() == 0 && pred_ptr != nullptr) {
+            if (head_ptr->buckets_.size() == pred_ptr->buckets_.size() * 2) {
+                FSet &mset = pred_ptr->buckets_[pos % pred_ptr->buckets_.size()];   
+                auto iter = mset.
+                // mset中的一半元素加到tset中
+            } else {
+                FSet &mset = pred_ptr->buckets_[pos];
+                FSet &nset = pred_ptr->buckets_[pos + head_ptr->buckets_.size()];
+
+            }
+
+        }
+    }
+private:
+    int growing_policy(void);
+    int shinking_policy(void);
+    
 private:
     HNode *head_ptr;
 };
