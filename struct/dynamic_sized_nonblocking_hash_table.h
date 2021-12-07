@@ -11,15 +11,16 @@ struct SValue {
     bool is_vaild;
     int value;
 
-    int hash_function(int seed) {
-        return value % seed;
-    }
-
     SValue(void)
     :is_vaild(false),
     value(0)
     {}
 };
+
+int hash_function(SValue key, int seed) 
+{
+    return key.value % seed;
+}
 
 struct FSetOp {
     FSetOpType type;    // 操作类型
@@ -67,7 +68,24 @@ public:
     }
 
     int size(void) {return data_.size();}
-    
+    // 对当前FSet中的元素根据seed和hash_function计算值等于result的移到to中
+    int move_value(int seed, int result, FSet &to) {
+        int size = 0;
+        for (auto iter = data_.begin(); iter != data_.end(); ++iter) {
+            if (hash_function(*iter, seed) == result) {
+                to.data_.insert(*iter);
+                data_.erase(iter);
+                ++size;
+            }
+        }
+
+        return size;
+    }
+
+    void append(FSet &from) {
+        data_.insert(from.data_.begin(), from.data_.end());
+        from.data_.clear();
+    }
 private:
     std::set<SValue> data_;
     bool ok;
@@ -75,20 +93,31 @@ private:
 
 //////////////////////////////////////////////////////////
 struct HNode {
-    std::vector<FSet> buckets_;
+    std::vector<FSet*> buckets_;
     HNode* pred_ptr;
+    int size;
 
-    HNode(void)
-    :pred_ptr(nullptr)
-    {}
+    HNode(int s)
+    :pred_ptr(nullptr),
+     size(s)
+    {
+        buckets_.assign(size, nullptr);   
+    }
+
+    ~HNode(void) {
+        for (auto iter = buckets_.begin(); iter != buckets_.end(); ++iter) {
+            delete *iter;
+            *iter = nullptr;
+        }
+    }
 };
 
 class LockFreeDSHSet {
 public:
     LockFreeDSHSet(void) 
     :head_ptr(nullptr) {
-        head_ptr = new HNode;
-        head_ptr->buckets_.push_back(FSet());
+        head_ptr = new HNode(1);
+        head_ptr->buckets_.push_back(new FSet());
     }
     ~LockFreeDSHSet(void) {}
 
@@ -101,11 +130,11 @@ public:
     }
 
     bool contains(SValue k) {
-        FSet &tset = head_ptr->buckets_[k.hash_function(head_ptr->buckets_.size())];
+        FSet &tset = *(head_ptr->buckets_[hash_function(k, head_ptr->buckets_.size())]);
         if (tset.size() == 0) {
             HNode *pred_ptr = head_ptr->pred_ptr;
             if (pred_ptr != nullptr) {
-                tset = pred_ptr->buckets_[k.hash_function(pred_ptr->buckets_.size())];
+                tset = *(pred_ptr->buckets_[hash_function(k, pred_ptr->buckets_.size())]);
             }
         }
 
@@ -117,23 +146,28 @@ public:
 
         }
     }
+    
     // ∧ 口朝下是 and
-    FSet init_bucket(int pos) {
-        FSet &tset = head_ptr->buckets_[pos];
+    int init_bucket(int pos) {
+        if (pos >= head_ptr->buckets_.size() || pos < 0) {
+            return -1;    
+        }
+
+        FSet *set_ptr = new FSet();
         HNode *pred_ptr = head_ptr->pred_ptr;
-        if (tset.size() == 0 && pred_ptr != nullptr) {
+        if (pred_ptr != nullptr) {
             if (head_ptr->buckets_.size() == pred_ptr->buckets_.size() * 2) {
-                FSet &mset = pred_ptr->buckets_[pos % pred_ptr->buckets_.size()];   
-                auto iter = mset.
-                // mset中的一半元素加到tset中
+                FSet &mset = *(pred_ptr->buckets_[pos % pred_ptr->buckets_.size()]);   
+                mset.move_value(head_ptr->buckets_.size(), pos, *set_ptr);
             } else {
-                FSet &mset = pred_ptr->buckets_[pos];
-                FSet &nset = pred_ptr->buckets_[pos + head_ptr->buckets_.size()];
-
+                set_ptr->append(*pred_ptr->buckets_[pos]);
+                set_ptr->append(*pred_ptr->buckets_[pos + head_ptr->buckets_.size()]);
             }
-
+            // 研究一下CAS
+            std::atomic_compare_exchange_strong(head_ptr->buckets_[pos], nullptr, set_ptr);
         }
     }
+
 private:
     int growing_policy(void);
     int shinking_policy(void);
