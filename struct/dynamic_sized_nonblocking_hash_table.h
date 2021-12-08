@@ -3,6 +3,7 @@
 #include "basic/basic_head.h"
 
 enum FSetOpType {
+    FSetOpType_Unknown,
     FSetOpType_Ins,
     FSetOpType_Rem,
 };
@@ -28,6 +29,11 @@ struct FSetOp {
     bool done;          // 操作是否完成
     bool resp;          // 结果返回，如果操作的确进行了设为true,反之false
                         // 比如进行插入操作，值之前已经存在则为false，不存在为true
+    FSetOp(void)
+    :type(FSetOpType_Unknown),
+    done(false),
+    resp(false)
+    {}
 };
 
 class FSet {
@@ -142,15 +148,47 @@ public:
     }
 
     void resize(bool grow) {
-        if (head_ptr->buckets_.size() > 1 && grow == true) {
+        HNode *tnode_ptr = head_ptr;
+        if (tnode_ptr->buckets_.size() > 1 || grow == true) {
+            for (int i = 0; i < tnode_ptr->buckets_.size(); ++i) {
+                init_bucket(i);
+            }
 
+            if (head_ptr->pred_ptr != nullptr) {
+                delete head_ptr->pred_ptr;
+                head_ptr->pred_ptr = nullptr;
+            }
+
+            int new_size = grow ? tnode_ptr->buckets_.size() * 2 : tnode_ptr->buckets_.size() / 2;
+            HNode* new_node_ptr = new HNode(new_size);
+            if (!compare_and_swap(head_ptr, tnode_ptr, new_node_ptr)) {
+                delete new_node_ptr;
+            }
         }
     }
     
+    bool apply(FSetOpType op_type, SValue val) {
+        FSetOp op;
+        op.key = val;
+        op.type = op_type;
+
+        while (true) {
+            FSet* set_ptr = head_ptr->buckets_[hash_function(val, head_ptr->size)];
+            if (set_ptr == nullptr) {
+                set_ptr = init_bucket(hash_function(val, head_ptr->size));
+            }
+
+            if (set_ptr != nullptr) {
+                set_ptr->invoke(op);
+                return set_ptr->get_response(op);
+            }
+        }
+    }
+
     // ∧ 口朝下是 and
-    int init_bucket(int pos) {
+    FSet * init_bucket(int pos) {
         if (pos >= head_ptr->buckets_.size() || pos < 0) {
-            return -1;    
+            return nullptr;    
         }
 
         FSet *set_ptr = new FSet();
@@ -163,15 +201,26 @@ public:
                 set_ptr->append(*pred_ptr->buckets_[pos]);
                 set_ptr->append(*pred_ptr->buckets_[pos + head_ptr->buckets_.size()]);
             }
-            // 研究一下CAS
-            std::atomic_compare_exchange_strong(head_ptr->buckets_[pos], nullptr, set_ptr);
+            
+            bool ret = compare_and_swap(head_ptr->buckets_[pos], nullptr, set_ptr);
+            if (!ret) {
+                delete set_ptr;
+                set_ptr = nullptr;
+            }
         }
+        return set_ptr;
     }
 
 private:
     int growing_policy(void);
     int shinking_policy(void);
-    
+    bool compare_and_swap(void *reg, void *old_value, void *new_value) {
+        if (reg != old_value) {
+            return false;
+        }
+        reg = new_value;
+        return true;
+    }
 private:
     HNode *head_ptr;
 };
