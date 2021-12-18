@@ -2,7 +2,8 @@
 	"AssociatedProject": [
 		"gtest",
 		"basic",
-		"system"
+		"system",
+		"data_structure"
 	],"ChooseCompiler": [
 		{
 			"CompilerName": "g++",

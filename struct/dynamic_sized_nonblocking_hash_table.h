@@ -1,6 +1,7 @@
 #ifndef _DYNAMIC_SIZED__
 #define _DYNAMIC_SIZED__
 #include "basic/basic_head.h"
+#include "system/system.h"
 
 enum FSetOpType {
     FSetOpType_Unknown,
@@ -98,12 +99,16 @@ private:
 };
 
 //////////////////////////////////////////////////////////
+#define DEFAULT_BUCKET_ELEMENTS_SIZE    32
+#define DEFAULT_BUCKETS_SIZE 16
+#define MIN_ELEMENT_SIZE (DEFAULT_BUCKET_ELEMENTS_SIZE * DEFAULT_BUCKETS_SIZE)
+
 struct HNode {
     std::vector<FSet*> buckets_;
     HNode* pred_ptr;
-    int size;
+    uint32_t size;
 
-    HNode(int s)
+    HNode(uint32_t s)
     :pred_ptr(nullptr),
      size(s)
     {
@@ -121,24 +126,45 @@ struct HNode {
 class LockFreeDSHSet {
 public:
     LockFreeDSHSet(void) 
-    :head_ptr(nullptr) {
-        head_ptr = new HNode(1);
-        head_ptr->buckets_.push_back(new FSet());
+    :head_ptr_(nullptr) {
+        head_ptr_ = new HNode(DEFAULT_BUCKETS_SIZE);
+        for (int i = 0; i < DEFAULT_BUCKETS_SIZE; ++i) {
+            head_ptr_->buckets_.push_back(new FSet());
+        }
+        elements_num_ = 0;
+        upper_elements_num_ = DEFAULT_BUCKETS_SIZE * DEFAULT_BUCKET_ELEMENTS_SIZE;
+        lower_elements_num_ = upper_elements_num_;
     }
     ~LockFreeDSHSet(void) {}
 
-    bool insert(int k) {
-
+    bool insert(const SValue &k) {
+        int pos = hash_function(k, head_ptr_->size);
+        if (apply(FSetOpType_Ins, k) == true) {
+            ++elements_num_;
+            if (elements_num_ > upper_elements_num_) {
+                resize(true);
+            }
+            return true;
+        }
+        return false;
     }
 
-    bool remove(int k) {
-
+    bool remove(const SValue &k) {
+        int pos = hash_function(k, head_ptr_->size);
+        if (apply(FSetOpType_Rem, k) == true) {
+            --elements_num_;
+            if (elements_num_ < lower_elements_num_) {
+                resize(false);
+            }
+            return true;
+        }
+        return false;
     }
 
     bool contains(SValue k) {
-        FSet &tset = *(head_ptr->buckets_[hash_function(k, head_ptr->buckets_.size())]);
+        FSet &tset = *(head_ptr_->buckets_[hash_function(k, head_ptr_->buckets_.size())]);
         if (tset.size() == 0) {
-            HNode *pred_ptr = head_ptr->pred_ptr;
+            HNode *pred_ptr = head_ptr_->pred_ptr;
             if (pred_ptr != nullptr) {
                 tset = *(pred_ptr->buckets_[hash_function(k, pred_ptr->buckets_.size())]);
             }
@@ -148,20 +174,22 @@ public:
     }
 
     void resize(bool grow) {
-        HNode *tnode_ptr = head_ptr;
-        if (tnode_ptr->buckets_.size() > 1 || grow == true) {
+        HNode *tnode_ptr = head_ptr_;
+        if (tnode_ptr->buckets_.size() > DEFAULT_BUCKETS_SIZE || grow == true) {
             for (int i = 0; i < tnode_ptr->buckets_.size(); ++i) {
                 init_bucket(i);
             }
 
-            if (head_ptr->pred_ptr != nullptr) {
-                delete head_ptr->pred_ptr;
-                head_ptr->pred_ptr = nullptr;
+            if (head_ptr_->pred_ptr != nullptr) {
+                delete head_ptr_->pred_ptr;
+                head_ptr_->pred_ptr = nullptr;
             }
 
             int new_size = grow ? tnode_ptr->buckets_.size() * 2 : tnode_ptr->buckets_.size() / 2;
             HNode* new_node_ptr = new HNode(new_size);
-            if (!compare_and_swap(head_ptr, tnode_ptr, new_node_ptr)) {
+            lower_elements_num_ = upper_elements_num_ / 2;
+            upper_elements_num_ = new_size * DEFAULT_BUCKET_ELEMENTS_SIZE;
+            if (!os::Mutex::compare_and_swap<HNode*>(head_ptr_, tnode_ptr, new_node_ptr)) {
                 delete new_node_ptr;
             }
         }
@@ -173,9 +201,9 @@ public:
         op.type = op_type;
 
         while (true) {
-            FSet* set_ptr = head_ptr->buckets_[hash_function(val, head_ptr->size)];
+            FSet* set_ptr = head_ptr_->buckets_[hash_function(val, head_ptr_->size)];
             if (set_ptr == nullptr) {
-                set_ptr = init_bucket(hash_function(val, head_ptr->size));
+                set_ptr = init_bucket(hash_function(val, head_ptr_->size));
             }
 
             if (set_ptr != nullptr) {
@@ -183,26 +211,28 @@ public:
                 return set_ptr->get_response(op);
             }
         }
+
+        return false;
     }
 
     // ∧ 口朝下是 and
     FSet * init_bucket(int pos) {
-        if (pos >= head_ptr->buckets_.size() || pos < 0) {
+        if (pos >= head_ptr_->buckets_.size() || pos < 0) {
             return nullptr;    
         }
 
         FSet *set_ptr = new FSet();
-        HNode *pred_ptr = head_ptr->pred_ptr;
+        HNode *pred_ptr = head_ptr_->pred_ptr;
         if (pred_ptr != nullptr) {
-            if (head_ptr->buckets_.size() == pred_ptr->buckets_.size() * 2) {
+            if (head_ptr_->buckets_.size() == pred_ptr->buckets_.size() * 2) {
                 FSet &mset = *(pred_ptr->buckets_[pos % pred_ptr->buckets_.size()]);   
-                mset.move_value(head_ptr->buckets_.size(), pos, *set_ptr);
+                mset.move_value(head_ptr_->buckets_.size(), pos, *set_ptr);
             } else {
                 set_ptr->append(*pred_ptr->buckets_[pos]);
-                set_ptr->append(*pred_ptr->buckets_[pos + head_ptr->buckets_.size()]);
+                set_ptr->append(*pred_ptr->buckets_[pos + head_ptr_->buckets_.size()]);
             }
             
-            bool ret = compare_and_swap(head_ptr->buckets_[pos], nullptr, set_ptr);
+            bool ret = os::Mutex::compare_and_swap<FSet*>(head_ptr_->buckets_[pos], nullptr, set_ptr);
             if (!ret) {
                 delete set_ptr;
                 set_ptr = nullptr;
@@ -212,8 +242,6 @@ public:
     }
 
 private:
-    int growing_policy(void);
-    int shinking_policy(void);
     bool compare_and_swap(void *reg, void *old_value, void *new_value) {
         if (reg != old_value) {
             return false;
@@ -221,7 +249,12 @@ private:
         reg = new_value;
         return true;
     }
+    
 private:
-    HNode *head_ptr;
+    HNode *head_ptr_;
+
+    uint32_t elements_num_;
+    uint32_t lower_elements_num_;
+    uint32_t upper_elements_num_;
 };
 #endif
