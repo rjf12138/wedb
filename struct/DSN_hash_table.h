@@ -1,5 +1,6 @@
 #ifndef _DYNAMIC_SIZED__
 #define _DYNAMIC_SIZED__
+
 #include "basic/basic_head.h"
 #include "system/system.h"
 
@@ -12,6 +13,31 @@ enum FSetOpType {
 struct SValue {
     bool is_vaild;
     int value;
+
+    bool operator==(const SValue& rhs) const {
+        return value == rhs.value;
+    }
+    bool operator!=(const SValue& rhs) const {
+        return !(value == rhs.value);
+    }
+    bool operator>(const SValue& rhs) const {
+        return (value > rhs.value);
+    }
+    bool operator>=(const SValue& rhs) const {
+        return (value >= rhs.value);
+    }
+    bool operator<(const SValue& rhs) const {
+        return (value < rhs.value);
+    }
+    bool operator<=(const SValue& rhs) const {
+        return (value <= rhs.value);
+    }
+    SValue& operator=(const SValue& src) {
+        is_vaild = src.is_vaild;
+        value = src.value;
+
+        return *this;
+    }
 
     SValue(void)
     :is_vaild(false),
@@ -26,10 +52,11 @@ int hash_function(SValue key, int seed)
 
 struct FSetOp {
     FSetOpType type;    // 操作类型
-    SValue key;            // 关键字
+    SValue key;         // 关键字
     bool done;          // 操作是否完成
     bool resp;          // 结果返回，如果操作的确进行了设为true,反之false
                         // 比如进行插入操作，值之前已经存在则为false，不存在为true
+
     FSetOp(void)
     :type(FSetOpType_Unknown),
     done(false),
@@ -68,6 +95,8 @@ public:
                 }
             }
         }
+
+        return op.resp;
     }
 
     void freeze(void) {
@@ -189,7 +218,7 @@ public:
             HNode* new_node_ptr = new HNode(new_size);
             lower_elements_num_ = upper_elements_num_ / 2;
             upper_elements_num_ = new_size * DEFAULT_BUCKET_ELEMENTS_SIZE;
-            if (!os::Mutex::compare_and_swap<HNode*>(head_ptr_, tnode_ptr, new_node_ptr)) {
+            if (!os::Atomic<HNode*>::compare_and_swap(&head_ptr_, tnode_ptr, new_node_ptr)) {
                 delete new_node_ptr;
             }
         }
@@ -232,7 +261,7 @@ public:
                 set_ptr->append(*pred_ptr->buckets_[pos + head_ptr_->buckets_.size()]);
             }
             
-            bool ret = os::Mutex::compare_and_swap<FSet*>(head_ptr_->buckets_[pos], nullptr, set_ptr);
+            bool ret = os::Atomic<FSet*>::compare_and_swap(&(head_ptr_->buckets_[pos]), nullptr, set_ptr);
             if (!ret) {
                 delete set_ptr;
                 set_ptr = nullptr;
