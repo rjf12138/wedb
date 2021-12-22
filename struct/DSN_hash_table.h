@@ -3,6 +3,7 @@
 
 #include "basic/basic_head.h"
 #include "system/system.h"
+#include "doubly_list.h"
 
 enum FSetOpType {
     FSetOpType_Unknown,
@@ -67,11 +68,9 @@ struct FSetOp {
 class FSet {
 public:
     FSet(void) 
-    :ok(true)
-    {}
+    :ok(true) {}
     ~FSet(void){}
 
-    bool get_response(FSetOp op) {return op.resp;}
     bool has_member(SValue key) {
         for (auto iter = data_.begin(); iter != data_.end(); ++iter) {
             if (iter->is_vaild == true && key.value == iter->value) {
@@ -86,17 +85,19 @@ public:
             if (op.type == FSetOpType_Ins) {
                 op.resp = !has_member(op.key);
                 if (op.resp) {
-                    data_.insert(op.key);
+                    data_.push_back(op.key);
+                    return true;
                 }
             } else if (op.type == FSetOpType_Rem) {
-                op.resp = has_member(op.key);
-                if (op.resp) {
-                    data_.erase(op.key);
+                 for (auto iter = data_.begin(); iter != data_.end(); ++iter) {
+                    if (iter->is_vaild == true && op.key.value == iter->value) {
+                        data_.erase(iter);
+                        return true;
+                    }
                 }
             }
         }
-
-        return op.resp;
+        return false;
     }
 
     void freeze(void) {
@@ -109,7 +110,7 @@ public:
         int size = 0;
         for (auto iter = data_.begin(); iter != data_.end(); ++iter) {
             if (hash_function(*iter, seed) == result) {
-                to.data_.insert(*iter);
+                to.data_.push_back(*iter);
                 data_.erase(iter);
                 ++size;
             }
@@ -119,11 +120,14 @@ public:
     }
 
     void append(FSet &from) {
-        data_.insert(from.data_.begin(), from.data_.end());
+        DoublyList<SValue>::Iterator iter = from.data_.begin();
+        for (; iter != from.data_.end(); ++iter) {
+            data_.push_back(*iter);
+        }
         from.data_.clear();
     }
 private:
-    std::set<SValue> data_;
+    DoublyList<SValue> data_;
     bool ok;
 };
 
@@ -133,21 +137,19 @@ private:
 #define MIN_ELEMENT_SIZE (DEFAULT_BUCKET_ELEMENTS_SIZE * DEFAULT_BUCKETS_SIZE)
 
 struct HNode {
-    std::vector<FSet*> buckets_;
+    FSet *buckets_;
     HNode* pred_ptr;
     uint32_t size;
 
     HNode(uint32_t s)
     :pred_ptr(nullptr),
-     size(s)
-    {
-        buckets_.assign(size, nullptr);   
+     size(s) {
+        buckets_ = new FSet[s];
     }
 
     ~HNode(void) {
-        for (auto iter = buckets_.begin(); iter != buckets_.end(); ++iter) {
-            delete *iter;
-            *iter = nullptr;
+        for (uint32_t i = 0; i < size; ++i) {
+            delete[] buckets_;
         }
     }
 };
@@ -157,18 +159,25 @@ public:
     LockFreeDSHSet(void) 
     :head_ptr_(nullptr) {
         head_ptr_ = new HNode(DEFAULT_BUCKETS_SIZE);
-        for (int i = 0; i < DEFAULT_BUCKETS_SIZE; ++i) {
-            head_ptr_->buckets_.push_back(new FSet());
-        }
         elements_num_ = 0;
         upper_elements_num_ = DEFAULT_BUCKETS_SIZE * DEFAULT_BUCKET_ELEMENTS_SIZE;
         lower_elements_num_ = upper_elements_num_;
     }
-    ~LockFreeDSHSet(void) {}
+    ~LockFreeDSHSet(void) {
+        if (head_ptr_ != nullptr) {
+            if (head_ptr_->pred_ptr != nullptr) {
+                delete head_ptr_->pred_ptr;
+                head_ptr_->pred_ptr = nullptr;
+            }
+            delete head_ptr_;
+            head_ptr_ = nullptr;
+        }
+
+    }
 
     bool insert(const SValue &k) {
-        int pos = hash_function(k, head_ptr_->size);
-        if (apply(FSetOpType_Ins, k) == true) {
+        bool ret = apply(FSetOpType_Ins, k);
+        if (ret == true) {
             ++elements_num_;
             if (elements_num_ > upper_elements_num_) {
                 resize(true);
@@ -179,7 +188,6 @@ public:
     }
 
     bool remove(const SValue &k) {
-        int pos = hash_function(k, head_ptr_->size);
         if (apply(FSetOpType_Rem, k) == true) {
             --elements_num_;
             if (elements_num_ < lower_elements_num_) {
@@ -191,11 +199,11 @@ public:
     }
 
     bool contains(SValue k) {
-        FSet &tset = *(head_ptr_->buckets_[hash_function(k, head_ptr_->buckets_.size())]);
+        FSet &tset = head_ptr_->buckets_[hash_function(k, head_ptr_->size)];
         if (tset.size() == 0) {
             HNode *pred_ptr = head_ptr_->pred_ptr;
             if (pred_ptr != nullptr) {
-                tset = *(pred_ptr->buckets_[hash_function(k, pred_ptr->buckets_.size())]);
+                tset = pred_ptr->buckets_[hash_function(k, pred_ptr->size)];
             }
         }
 
@@ -204,8 +212,8 @@ public:
 
     void resize(bool grow) {
         HNode *tnode_ptr = head_ptr_;
-        if (tnode_ptr->buckets_.size() > DEFAULT_BUCKETS_SIZE || grow == true) {
-            for (int i = 0; i < tnode_ptr->buckets_.size(); ++i) {
+        if (tnode_ptr->size > DEFAULT_BUCKETS_SIZE || grow == true) {
+            for (int i = 0; i < tnode_ptr->size; ++i) {
                 init_bucket(i);
             }
 
@@ -214,7 +222,7 @@ public:
                 head_ptr_->pred_ptr = nullptr;
             }
 
-            int new_size = grow ? tnode_ptr->buckets_.size() * 2 : tnode_ptr->buckets_.size() / 2;
+            int new_size = grow ? tnode_ptr->size * 2 : tnode_ptr->size / 2;
             HNode* new_node_ptr = new HNode(new_size);
             lower_elements_num_ = upper_elements_num_ / 2;
             upper_elements_num_ = new_size * DEFAULT_BUCKET_ELEMENTS_SIZE;
@@ -230,42 +238,37 @@ public:
         op.type = op_type;
 
         while (true) {
-            FSet* set_ptr = head_ptr_->buckets_[hash_function(val, head_ptr_->size)];
-            if (set_ptr == nullptr) {
+            FSet &set_ptr = head_ptr_->buckets_[hash_function(val, head_ptr_->size)];
+            if (set_ptr.size() == 0) {
                 set_ptr = init_bucket(hash_function(val, head_ptr_->size));
             }
 
             if (set_ptr != nullptr) {
-                set_ptr->invoke(op);
-                return set_ptr->get_response(op);
+                return set_ptr->invoke(op);
             }
         }
 
         return false;
     }
-
+    
     // ∧ 口朝下是 and
-    FSet * init_bucket(int pos) {
-        if (pos >= head_ptr_->buckets_.size() || pos < 0) {
+    FSet init_bucket(int pos) {
+        if (pos >= head_ptr_->size || pos < 0) {
             return nullptr;    
         }
 
         FSet *set_ptr = new FSet();
         HNode *pred_ptr = head_ptr_->pred_ptr;
         if (pred_ptr != nullptr) {
-            if (head_ptr_->buckets_.size() == pred_ptr->buckets_.size() * 2) {
-                FSet &mset = *(pred_ptr->buckets_[pos % pred_ptr->buckets_.size()]);   
-                mset.move_value(head_ptr_->buckets_.size(), pos, *set_ptr);
+            if (head_ptr_->size == pred_ptr->size * 2) {
+                FSet &mset = pred_ptr->buckets_[pos % pred_ptr->size];   
+                mset.move_value(head_ptr_->size, pos, *set_ptr);
             } else {
-                set_ptr->append(*pred_ptr->buckets_[pos]);
-                set_ptr->append(*pred_ptr->buckets_[pos + head_ptr_->buckets_.size()]);
+                set_ptr->append(pred_ptr->buckets_[pos]);
+                set_ptr->append(pred_ptr->buckets_[pos + head_ptr_->size]);
             }
             
-            bool ret = os::Atomic<FSet*>::compare_and_swap(&(head_ptr_->buckets_[pos]), nullptr, set_ptr);
-            if (!ret) {
-                delete set_ptr;
-                set_ptr = nullptr;
-            }
+            bool ret = os::Atomic<FSet>::compare_and_swap(head_ptr_->buckets_[pos], nullptr, set_ptr);
         }
         return set_ptr;
     }

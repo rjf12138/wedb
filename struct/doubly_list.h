@@ -5,8 +5,12 @@
 template<typename V>
 struct DoublyListNode {
 	V value;
-	DoublyListNode<V>* prev, * next;
+	DoublyListNode<V>* prev;
+	DoublyListNode<V>* next;
 
+	DoublyListNode(DoublyListNode<V>* p = nullptr, DoublyListNode<V>* n = nullptr)
+		:prev(p), next(n)
+	{}
 	DoublyListNode(const V& v, DoublyListNode<V>* p = nullptr, DoublyListNode<V>* n = nullptr)
 		:value(v), prev(p), next(n)
 	{}
@@ -25,6 +29,7 @@ public:
 		~Iterator(void);
 
 		V& operator*();
+		V* operator->();
 		bool operator==(const Iterator& rhs);
 		bool operator!=(const Iterator& rhs);
 		Iterator& operator=(const Iterator& rhs);
@@ -36,8 +41,10 @@ public:
 		Iterator operator--(int32_t); // 前置
 
 	private:
-		const DoublyList* list_;
-		DoublyListNode* node_;
+		Iterator(DoublyList<V>* list);
+	private:
+		const DoublyList<V>* list_;
+		DoublyListNode<V>* node_;
 	};
 
 	Iterator begin(void);
@@ -92,16 +99,16 @@ int32_t DoublyList<V>::clear(void)
 }
 
 template <typename V>
-DoublyList<V>::Iterator DoublyList<V>::begin(void)
+typename DoublyList<V>::Iterator DoublyList<V>::begin(void)
 {
 	Iterator iter(this);
-	iter.node_ = head_->next;
+	iter.node_ = head_.next;
 
 	return iter;
 }
 
 template <typename V>
-DoublyList<V>::Iterator DoublyList<V>::end(void)
+typename DoublyList<V>::Iterator DoublyList<V>::end(void)
 {
 	Iterator iter(this);
 	iter.node_ = &tail_;
@@ -180,7 +187,6 @@ int32_t DoublyList<V>::erase(const Iterator& iter)
 }
 
 ////////////////////////////////////////////////////
-
 template <typename V>
 DoublyList<V>::Iterator::Iterator(void)
 	:list_(nullptr), node_(nullptr)
@@ -188,6 +194,12 @@ DoublyList<V>::Iterator::Iterator(void)
 
 }
 
+template <typename V>
+DoublyList<V>::Iterator::Iterator(DoublyList<V>* list)
+:list_(list)
+{
+
+}
 
 template <typename V>
 DoublyList<V>::Iterator::~Iterator(void)
@@ -202,7 +214,7 @@ V& DoublyList<V>::Iterator::operator*()
 		throw std::runtime_error("DoublyList<V>::Iterator::operator*(): Iterator not pointer any DoublyList node.");
 	}
 
-	if (node_ == &list_->head_ || node_ == &list->tail_) {
+	if (node_ == &list_->head_ || node_ == &list_->tail_) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator*(): Iterator not pointer any DoublyList node.");
 	}
 
@@ -210,17 +222,31 @@ V& DoublyList<V>::Iterator::operator*()
 }
 
 template <typename V>
+V* DoublyList<V>::Iterator::operator->()
+{
+	if (list_ == nullptr || node_ == nullptr) {
+		throw std::runtime_error("DoublyList<V>::Iterator::operator*(): Iterator not pointer any DoublyList node.");
+	}
+
+	if (node_ == &list_->head_ || node_ == &list_->tail_) {
+		throw std::runtime_error("DoublyList<V>::Iterator::operator*(): Iterator not pointer any DoublyList node.");
+	}
+
+	return &(node_->value);
+}
+
+template <typename V>
 bool DoublyList<V>::Iterator::operator==(const DoublyList<V>::Iterator& rhs)
 {
 	if (list_ == nullptr || node_ == nullptr) {
-		return False;
+		return false;
 	}
 
 	if (list_ == rhs.list_ && node_ == rhs.node_) {
-		return True;
+		return true;
 	}
 
-	return False;
+	return false;
 }
 
 template <typename V>
@@ -230,7 +256,7 @@ bool DoublyList<V>::Iterator::operator!=(const DoublyList<V>::Iterator& rhs)
 }
 
 template <typename V>
-DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator=(const DoublyList<V>::Iterator& rhs)
+typename DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator=(const DoublyList<V>::Iterator& rhs)
 {
 	list_ = rhs.list_;
 	node_ = rhs.node_;
@@ -239,13 +265,13 @@ DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator=(const DoublyList<V>:
 }
 
 template <typename V>
-DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator++()
+typename DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator++()
 {
 	if (list_ == nullptr || node_ == nullptr) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator++(): Iterator not pointer any DoublyList node.");
 	}
 
-	if (node_ == &list_->head_ || node_ == &list->tail_) {
+	if (node_ == &list_->head_ || node_ == &list_->tail_) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator++(): Iterator not pointer any DoublyList node.");
 	}
 
@@ -254,13 +280,13 @@ DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator++()
 }
 
 template <typename V>
-DoublyList<V>::Iterator DoublyList<V>::Iterator::operator++(int32_t)
+typename DoublyList<V>::Iterator DoublyList<V>::Iterator::operator++(int32_t)
 {
 	if (list_ == nullptr || node_ == nullptr) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator++(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
-	if (node_ == &list_->head_ || node_ == &list->tail_) {
+	if (node_ == &list_->head_ || node_ == &list_->tail_) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator++(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
@@ -271,13 +297,13 @@ DoublyList<V>::Iterator DoublyList<V>::Iterator::operator++(int32_t)
 }
 
 template <typename V>
-DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator--()
+typename DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator--()
 {
 	if (list_ == nullptr || node_ == nullptr) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator--(): Iterator not pointer any DoublyList node.");
 	}
 
-	if (node_ == &list_->head_ || node_ == &list->tail_) {
+	if (node_ == &list_->head_ || node_ == &list_->tail_) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator--(): Iterator not pointer any DoublyList node.");
 	}
 
@@ -286,13 +312,13 @@ DoublyList<V>::Iterator& DoublyList<V>::Iterator::operator--()
 }
 
 template <typename V>
-DoublyList<V>::Iterator DoublyList<V>::Iterator::operator--(int32_t)
+typename DoublyList<V>::Iterator DoublyList<V>::Iterator::operator--(int32_t)
 {
 	if (list_ == nullptr || node_ == nullptr) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator--(int32_t): Iterator not pointer any DoublyList node.");
 	}
 
-	if (node_ == &list_->head_ || node_ == &list->tail_) {
+	if (node_ == &list_->head_ || node_ == &list_->tail_) {
 		throw std::runtime_error("DoublyList<V>::Iterator::operator--(int32_t): Iterator not pointer any DoublyList node.");
 	}
 

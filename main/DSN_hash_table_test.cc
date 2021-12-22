@@ -27,7 +27,12 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
 
     for (int i = 0;i < 20; ++i) {
         value.value = i;
-        tset.insert(value);
+        ASSERT_EQ(tset.insert(value), true);
+    }
+
+    for (int i = 0; i < 30; ++i) {
+        value.value = i;
+        std::cout << "i: " << i << " exit: " << (tset.contains(value) ? "true":"false") << std::endl;
     }
 
     for (int i = 20; i >= 0; --i) {
