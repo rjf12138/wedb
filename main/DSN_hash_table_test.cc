@@ -25,20 +25,32 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
     LockFreeDSHSet tset;
     SValue value;
 
-    for (int i = 0;i < 20; ++i) {
+    int start_num = 20;
+    int end_num = 600;
+    for (int i = start_num; i <= end_num; ++i) {
         value.value = i;
         ASSERT_EQ(tset.insert(value), true);
     }
+    ASSERT_EQ(tset.size(), end_num - start_num + 1);
+    tset.print();
 
-    for (int i = 0; i < 30; ++i) {
+    for (int i = 0; i < end_num; ++i) {
         value.value = i;
-        std::cout << "i: " << i << " exit: " << (tset.contains(value) ? "true":"false") << std::endl;
+        bool ret = tset.contains(value);
+        if (i < start_num) {
+            ASSERT_EQ(ret, false);
+        } else {
+            ASSERT_EQ(ret, true);
+        }
     }
-
-    for (int i = 20; i >= 0; --i) {
+    // 删除重新调整数据时存在问题
+    int remove_start = 500;
+    for (int i = remove_start; i >= 0; --i) {
         value.value = i;
         tset.remove(value);
     }
+    ASSERT_EQ(tset.size(), end_num - remove_start);
+    tset.print();
 }
 
 }
