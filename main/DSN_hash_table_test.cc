@@ -26,10 +26,9 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
     SValue<int> value;
 
     int start_num = 20;
-    int end_num = 600;
+    int end_num = 1600;
     for (int i = start_num; i <= end_num; ++i) {
         value.value = i;
-        fprintf(stderr, "i: %d\n", i);
         ASSERT_EQ(tset.insert(value), true);
     }
     ASSERT_EQ(tset.size(), end_num - start_num + 1);
@@ -45,7 +44,7 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
         }
     }
     // 删除重新调整数据时存在问题
-    int remove_start = 500;
+    int remove_start = 1500;
     for (int i = remove_start; i >= 0; --i) {
         value.value = i;
         tset.remove(value);

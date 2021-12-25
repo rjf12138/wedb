@@ -106,7 +106,7 @@ public:
     }
 
     void append(FSet<T> &from) {
-        DoublyList<SValue<T>>::Iterator iter = from.data_.begin();
+        typename DoublyList<SValue<T>>::Iterator iter = from.data_.begin();
         for (; iter != from.data_.end(); ++iter) {
             data_.push_back(*iter);
         }
@@ -171,7 +171,7 @@ public:
 
     int size(void) const {return elements_num_;}
 
-    bool insert(const SValue<T> &k) {
+    bool insert(SValue<T> &k) {
         bool ret = apply(FSetOpType_Ins, k);
         if (ret == true) {
             ++elements_num_;
@@ -183,7 +183,7 @@ public:
         return false;
     }
 
-    bool remove(const SValue<T> &k) {
+    bool remove(SValue<T> &k) {
         if (apply(FSetOpType_Rem, k) == true) {
             --elements_num_;
             if (elements_num_ < lower_elements_num_) {
@@ -217,7 +217,7 @@ public:
             }
 
             int new_size = grow ? head_ptr_->size * 2 : head_ptr_->size / 2;
-            HNode<T>* new_node_ptr = new HNode(new_size);
+            HNode<T>* new_node_ptr = new HNode<T>(new_size);
             lower_elements_num_ = upper_elements_num_ / 2;
             upper_elements_num_ = new_size * DEFAULT_BUCKET_ELEMENTS_SIZE;
             if (!os::Atomic<HNode<T>*>::compare_and_swap(&new_node_ptr->pred_ptr, nullptr, head_ptr_)) {
@@ -228,7 +228,7 @@ public:
             }
 
             for (int i = 0; i < head_ptr_->size; ++i) {
-                FSet *ret_ptr = init_bucket(i);
+                FSet<T> *ret_ptr = init_bucket(i);
                 if (ret_ptr == nullptr) {
                     head_ptr_->buckets_[i] = ret_ptr;
                 }
@@ -257,7 +257,7 @@ public:
             return nullptr;    
         }
 
-        FSet<T> *set_ptr = new FSet();
+        FSet<T> *set_ptr = new FSet<T>();
         HNode<T> *pred_ptr = head_ptr_->pred_ptr;
         if (pred_ptr != nullptr) {
             if (head_ptr_->size == pred_ptr->size * 2) {
