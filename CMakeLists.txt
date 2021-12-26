@@ -26,10 +26,10 @@ target_include_directories(wedb PRIVATE struct)
 
 target_link_directories(wedb PRIVATE ./lib/debug/)
 
-target_link_libraries(wedb PRIVATE basicd)
 target_link_libraries(wedb PRIVATE systemd)
 target_link_libraries(wedb PRIVATE gtest)
 target_link_libraries(wedb PRIVATE pthread)
+target_link_libraries(wedb PRIVATE basicd)
 include(src/CMakeLists.txt)
 include(struct/CMakeLists.txt)
 
