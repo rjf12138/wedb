@@ -335,5 +335,7 @@ private:
     uint32_t elements_num_;
     uint32_t lower_elements_num_;
     uint32_t upper_elements_num_;
+
+    std::map<os::thread_id_t, >
 };
 #endif

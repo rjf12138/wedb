@@ -78,7 +78,7 @@ void* producer(void* arg)
         value.value = i;
         lfset_ptr->lfset_ptr->insert(value);
         //fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
-        //os::Time::sleep(5);
+        //os::Time::sleep(20);
     }
     fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
     delete lfset_ptr;
