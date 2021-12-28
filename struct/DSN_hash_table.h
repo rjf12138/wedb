@@ -14,6 +14,8 @@ enum FSetOpType {
 template <class T>
 struct SValue {
     bool is_vaild;
+    uint32_t prio;
+    FSetOpType op;
     T value;
 
     bool operator==(const SValue& rhs) const {
@@ -151,7 +153,8 @@ template <class T>
 class LockFreeDSHSet {
 public:
     LockFreeDSHSet(void) 
-    :head_ptr_(nullptr) {
+    :head_ptr_(nullptr),
+    prio_(0) {
         head_ptr_ = new HNode<T>(DEFAULT_BUCKETS_SIZE);
         elements_num_ = 0;
         upper_elements_num_ = DEFAULT_BUCKETS_SIZE * DEFAULT_BUCKET_ELEMENTS_SIZE;
@@ -237,6 +240,10 @@ public:
     }
     
     bool apply(FSetOpType op_type, SValue<T> &val) {
+        __atomic_fetch_and(&counter_, 1);
+        val.prio = counter_;
+        values[os::Thread::current_thread_id()] = val;
+
         while (true) {
             FSet<T> **set_ptr = &head_ptr_->buckets_[val.hash_function(head_ptr_->size)];
             if (*set_ptr == nullptr) {
@@ -330,12 +337,13 @@ private:
     }
     
 private:
-    HNode<T> *head_ptr_;
-
     uint32_t elements_num_;
     uint32_t lower_elements_num_;
     uint32_t upper_elements_num_;
 
-    std::map<os::thread_id_t, >
+    HNode<T> *head_ptr_;
+
+    uint32_t counter_;
+    std::map<os::thread_id_t, SValue<T>> values;
 };
 #endif
