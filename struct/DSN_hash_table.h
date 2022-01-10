@@ -16,6 +16,7 @@ struct SValue {
     bool is_vaild;
     uint32_t prio;
     FSetOpType op;
+    bool done;
     T value;
 
     bool operator==(const SValue& rhs) const {
@@ -39,6 +40,9 @@ struct SValue {
     SValue& operator=(const SValue& src) {
         is_vaild = src.is_vaild;
         value = src.value;
+        done = src.done;
+        op = src.done;
+        prio = src.prio;
 
         return *this;
     }
@@ -49,7 +53,15 @@ struct SValue {
 
     SValue(void)
     :is_vaild(false),
-    value(0)
+    done(false),
+    prio(0)
+    {}
+
+    SValue(T val, uint32_t pri = 0)
+    :is_vaild(false),
+    done(false),
+    value(val),
+    prio(pri)
     {}
 };
 
@@ -70,7 +82,7 @@ public:
     }
 
     bool invoke(FSetOpType op, SValue<T> &key) {
-        if (ok == true) {
+        if (ok == true && !key.done) {
             if (op == FSetOpType_Ins) {
                 if (!has_member(key)) {
                     key.is_vaild = true;
@@ -86,7 +98,7 @@ public:
                 }
             }
         }
-        return false;
+        return key.done;
     }
 
     void freeze(void) {
@@ -159,6 +171,10 @@ public:
         elements_num_ = 0;
         upper_elements_num_ = DEFAULT_BUCKETS_SIZE * DEFAULT_BUCKET_ELEMENTS_SIZE;
         lower_elements_num_ = upper_elements_num_;
+
+        for (int i = 0; i < 64; ++i) {
+            values[i] = nullptr;
+        }
     }
     ~LockFreeDSHSet(void) {
         if (head_ptr_ != nullptr) {
@@ -239,19 +255,28 @@ public:
         }
     }
     
-    bool apply(FSetOpType op_type, SValue<T> &val) {
+    bool apply(FSetOpType op_type, T &val) {
         __atomic_fetch_and(&counter_, 1);
-        val.prio = counter_;
-        values[os::Thread::current_thread_id()] = val;
-
-        while (true) {
-            FSet<T> **set_ptr = &head_ptr_->buckets_[val.hash_function(head_ptr_->size)];
-            if (*set_ptr == nullptr) {
-                *set_ptr = init_bucket(val.hash_function(head_ptr_->size));
+        SValue<T> *value_ptr = new SValue<T>(val, counter_);
+        for (int i = 0; i < 64; ++i) {
+            if (values[i] == nullptr) {
+                values[i] = value_ptr;
+                break;
             }
+        }
 
-            if (*set_ptr != nullptr) {
-                return (*set_ptr)->invoke(op_type, val);
+        for (int i = 0; i < 64; ++i) {
+            if (values[i] != nullptr && values[i].prio <= value_ptr->prio) { 
+                while (true) {
+                    FSet<T> **set_ptr = &head_ptr_->buckets_[val.hash_function(head_ptr_->size)];
+                    if (*set_ptr == nullptr) {
+                        *set_ptr = init_bucket(val.hash_function(head_ptr_->size));
+                    }
+
+                    if (*set_ptr != nullptr) {
+                        return (*set_ptr)->invoke(op_type, val);
+                    }
+                }
             }
         }
 
@@ -344,6 +369,6 @@ private:
     HNode<T> *head_ptr_;
 
     uint32_t counter_;
-    std::map<os::thread_id_t, SValue<T>> values;
+    SValue<T>* values[64];
 };
 #endif
