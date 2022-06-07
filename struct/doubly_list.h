@@ -26,6 +26,7 @@ public:
 		friend class DoublyList;
 	public:
 		Iterator(void);
+		Iterator(const Iterator &iter);
 		~Iterator(void);
 
 		V& operator*();
@@ -192,6 +193,12 @@ DoublyList<V>::Iterator::Iterator(void)
 	:list_(nullptr), node_(nullptr)
 {
 
+}
+
+template <typename V>
+DoublyList<V>::Iterator::Iterator(const Iterator &iter)
+{
+	*this = iter;
 }
 
 template <typename V>

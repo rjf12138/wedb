@@ -32,7 +32,7 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
         ASSERT_EQ(tset.insert(value), true);
     }
     ASSERT_EQ(tset.size(), end_num - start_num + 1);
-    //tset.print();
+    tset.print();
 
     for (int i = 0; i < end_num; ++i) {
         value.value = i;
@@ -47,10 +47,15 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
     int remove_start = 1500;
     for (int i = remove_start; i >= 0; --i) {
         value.value = i;
-        tset.remove(value);
+        bool ret = tset.remove(value);
+        if (i < start_num) {
+            ASSERT_EQ(ret, false);
+        } else {
+            ASSERT_EQ(ret, true);
+        }
     }
     ASSERT_EQ(tset.size(), end_num - remove_start);
-    //tset.print();
+    tset.print();
 }
 
 
@@ -77,14 +82,15 @@ void* producer(void* arg)
         SValue<int> value;
         value.value = i;
         lfset_ptr->lfset_ptr->insert(value);
-        //fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
-        //os::Time::sleep(20);
+        fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
+        os::Time::sleep(20);
     }
     fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
     delete lfset_ptr;
     return nullptr;
 }
 
+// TODO: 多线程存在问题
 TEST_F(DSNHashTableTest, DSNHashTableTest_MutiThreadTest)
 {
     // 用多个线程插入和删除进行测试
@@ -94,13 +100,13 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_MutiThreadTest)
     thread_pool.set_threadpool_config(config);
     while (true) {
         os::ThreadPoolRunningInfo info = thread_pool.get_running_info();
-        if (info.idle_threads_num + info.running_threads_num == config.threads_num) {
+        if (info.idle_threads_num + info.running_threads_num == static_cast<int>(config.threads_num)) {
             break;
         }
     }
 
     LockFreeDSHSet<int> lfset;
-    for (int i = 0; i < config.threads_num; ++i) {
+    for (int i = 0; i < static_cast<int>(config.threads_num); ++i) {
         FSetTask *ftask = new FSetTask;
         ftask->start = i * 100;
         ftask->end = ftask->start + 100;

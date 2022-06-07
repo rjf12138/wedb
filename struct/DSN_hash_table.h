@@ -13,11 +13,25 @@ enum FSetOpType {
 
 template <class T>
 struct SValue {
-    bool is_vaild;
-    uint32_t prio;
-    FSetOpType op;
-    bool done;
-    T value;
+public:
+    SValue(void)
+        :done(false),
+        is_vaild(false),
+        prio(0)
+    {}
+
+    SValue(const SValue<T> &val)
+    {
+        *this = val;
+    }
+
+    SValue(T val, uint32_t pri = 0)
+        :done(false),
+        is_vaild(false),
+        prio(pri),
+        value(val)
+    {}
+
 
     bool operator==(const SValue& rhs) const {
         return value == rhs.value;
@@ -41,7 +55,7 @@ struct SValue {
         is_vaild = src.is_vaild;
         value = src.value;
         done = src.done;
-        op = src.done;
+        op = src.op;
         prio = src.prio;
 
         return *this;
@@ -51,18 +65,12 @@ struct SValue {
         return value % seed;
     }
 
-    SValue(void)
-    :is_vaild(false),
-    done(false),
-    prio(0)
-    {}
-
-    SValue(T val, uint32_t pri = 0)
-    :is_vaild(false),
-    done(false),
-    value(val),
-    prio(pri)
-    {}
+public:
+    bool done;
+    bool is_vaild;
+    FSetOpType op;
+    uint32_t prio;
+    T value;
 };
 
 template <class T>
@@ -165,8 +173,7 @@ template <class T>
 class LockFreeDSHSet {
 public:
     LockFreeDSHSet(void) 
-    :head_ptr_(nullptr),
-    prio_(0) {
+    :head_ptr_(nullptr) {
         head_ptr_ = new HNode<T>(DEFAULT_BUCKETS_SIZE);
         elements_num_ = 0;
         upper_elements_num_ = DEFAULT_BUCKETS_SIZE * DEFAULT_BUCKET_ELEMENTS_SIZE;
@@ -191,7 +198,7 @@ public:
     int size(void) const {return elements_num_;}
 
     bool insert(SValue<T> &k) {
-        bool ret = apply(FSetOpType_Ins, k);
+        bool ret = apply(FSetOpType_Ins, k.value);
         if (ret == true) {
             ++elements_num_;
             if (elements_num_ > upper_elements_num_) {
@@ -203,7 +210,7 @@ public:
     }
 
     bool remove(SValue<T> &k) {
-        if (apply(FSetOpType_Rem, k) == true) {
+        if (apply(FSetOpType_Rem, k.value) == true) {
             --elements_num_;
             if (elements_num_ < lower_elements_num_) {
                 resize(false);
@@ -256,7 +263,7 @@ public:
     }
     
     bool apply(FSetOpType op_type, T &val) {
-        __atomic_fetch_and(&counter_, 1);
+        os::Atomic<uint32_t>::fetch_and_add(&counter_, 1);
         SValue<T> *value_ptr = new SValue<T>(val, counter_);
         for (int i = 0; i < 64; ++i) {
             if (values[i] == nullptr) {
@@ -266,15 +273,15 @@ public:
         }
 
         for (int i = 0; i < 64; ++i) {
-            if (values[i] != nullptr && values[i].prio <= value_ptr->prio) { 
+            if (values[i] != nullptr && values[i]->prio <= value_ptr->prio) { 
                 while (true) {
-                    FSet<T> **set_ptr = &head_ptr_->buckets_[val.hash_function(head_ptr_->size)];
+                    FSet<T> **set_ptr = &head_ptr_->buckets_[value_ptr->hash_function(head_ptr_->size)];
                     if (*set_ptr == nullptr) {
-                        *set_ptr = init_bucket(val.hash_function(head_ptr_->size));
+                        *set_ptr = init_bucket(value_ptr->hash_function(head_ptr_->size));
                     }
 
                     if (*set_ptr != nullptr) {
-                        return (*set_ptr)->invoke(op_type, val);
+                        return (*set_ptr)->invoke(op_type, *value_ptr);
                     }
                 }
             }
@@ -352,14 +359,14 @@ public:
         fprintf(stderr, "\n\n");
     }
 
-private:
-    bool compare_and_swap(void *reg, void *old_value, void *new_value) {
-        if (reg != old_value) {
-            return false;
-        }
-        reg = new_value;
-        return true;
-    }
+// private:
+//     bool compare_and_swap(void *reg, void *old_value, void *new_value) {
+//         if (reg != old_value) {
+//             return false;
+//         }
+//         reg = new_value;
+//         return true;
+//     }
     
 private:
     uint32_t elements_num_;
