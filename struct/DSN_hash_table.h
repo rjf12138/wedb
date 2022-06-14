@@ -275,9 +275,10 @@ public:
         for (int i = 0; i < 64; ++i) {
             if (values[i] != nullptr && values[i]->prio <= value_ptr->prio) { 
                 while (true) {
-                    FSet<T> **set_ptr = &head_ptr_->buckets_[value_ptr->hash_function(head_ptr_->size)];
+                    int pos = value_ptr->hash_function(head_ptr_->size);
+                    FSet<T> **set_ptr = &head_ptr_->buckets_[pos];
                     if (*set_ptr == nullptr) {
-                        *set_ptr = init_bucket(value_ptr->hash_function(head_ptr_->size));
+                        *set_ptr = init_bucket(pos);
                     }
 
                     if (*set_ptr != nullptr) {

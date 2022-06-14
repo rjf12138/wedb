@@ -9,6 +9,7 @@
         "regex": "cpp",
         "utility": "cpp",
         "iostream": "cpp",
-        "new": "cpp"
+        "new": "cpp",
+        "stdexcept": "cpp"
     }
 }

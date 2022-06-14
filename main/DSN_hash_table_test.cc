@@ -63,6 +63,7 @@ TEST_F(DSNHashTableTest, DSNHashTableTest_BasicTest)
 struct FSetTask {
     int start;
     int end;
+    os::Mutex lock;
     LockFreeDSHSet<int> *lfset_ptr;
 };
 
@@ -82,10 +83,9 @@ void* producer(void* arg)
         SValue<int> value;
         value.value = i;
         lfset_ptr->lfset_ptr->insert(value);
-        fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
-        os::Time::sleep(20);
     }
     fprintf(stderr, "start: %d, end: %d, total: %d\n", lfset_ptr->start, lfset_ptr->end, lfset_ptr->lfset_ptr->size());
+    lfset_ptr->lfset_ptr->print();
     delete lfset_ptr;
     return nullptr;
 }
