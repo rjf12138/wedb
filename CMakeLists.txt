@@ -28,7 +28,7 @@ string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 
 # 设置生成文件输出路径
 set(EXECUTABLE_OUTPUT_PATH, ./output/debug/bin)
-add_executable(wedb ./main/DSN_hash_table_test.cc)
+add_executable(wedb ./main/FSetNode_Test.cc)
 
 target_include_directories(wedb PUBLIC ./inc/)
 target_include_directories(wedb PRIVATE ./extern_inc/)
