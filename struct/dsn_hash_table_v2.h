@@ -4,7 +4,7 @@
 #include "basic/basic_head.h"
 #include "system/system.h"
 
-#define FSETNODE_VALUE_MAX_SIZE     1024
+#define FSETNODE_VALUE_MAX_SIZE     256
 #define FSET_BUCKETS_INIT_SIZE      16
 
 enum EFSetOp {
@@ -47,7 +47,8 @@ struct FSetOp {
 struct FSetNode {
     FSetNode(uint32_t size = FSETNODE_VALUE_MAX_SIZE)
     :size_(0),
-    max_size_(size) {
+    max_size_(size),
+    is_resizing_(false) {
         values_ptr = new FSetValue[size];
     }
 
@@ -56,10 +57,6 @@ struct FSetNode {
             delete []values_ptr;
             size_ = 0;
         }
-    }
-
-    void clear(void) {
-        
     }
 
     bool exist(const FSetValue &val) {
@@ -88,13 +85,10 @@ struct FSetNode {
     // 之后继续进行插入新值，那么已经被删除的值又被恢复了。
     // 或是继续采用固定长度的数组思考
     bool insert(const FSetValue &val) {
-        if (size_ == max_size_) {
-            FSetValue *tmp_ptr = new FSetValue[max_size_*2];
-            for (int i = 0, j = 0; i < max_size_; ++i) {
-
-            }
+        if (exist(val) == true) {
+            return false;
         }
-
+        
         for (int i = 0; i < max_size_; ++i) {
             if (os::Atomic<bool>::compare_and_swap(&values_ptr[i].valid, false, true)) {
                 values_ptr[i].value = val.value;
@@ -142,86 +136,43 @@ struct FSetNode {
 public:
     FSetValue *values_ptr;
     FSetOp op;
-    uint32_t size_;
-    uint32_t max_size_;
+    uint32_t size_;         // 当前数据的长度
+    uint32_t max_size_;     // 数组的最大存储数量
+    bool is_resizing_;      // 正在重新调整缓存大小
 };
 
 class FSet {
 public:
     FSet(void) 
-    :flag_(false) {}
-
-    bool invoke(FSetOp op) {
-        while (node_.op.type != EFSetOp_WaitFree && node_.op.prio != -1) {
-            if (flag_ == true) {
-                do_freeze();
-                break;
-            }
-
-            FSetOp tmp_op = node_.op;
-            if (node_.op.type == EFSetOp_None) {
-                if (op.prio != -1) {
-                    if (os::Atomic<FSetOp>::compare_and_swap(&node_.op, tmp_op, op)) {
-                        help_finish();
-                        return true;
-                    }
-                }
-            } else {
-                help_finish();
-            }
-        }
-        return op.prio == -1;
-    }
+    :freeze_(false) {}
 
     void freeze(void) {
-        flag_ = true;
-        return do_freeze();
-    }
-
-    void do_freeze(void) {
-        while (node_.op.type != EFSetOp_WaitFree) {
-            FSetOp &tmp = node_.op;
-            if (tmp.type == EFSetOp_None) {
-                if (os::Atomic<EFSetOp>::compare_and_swap(&tmp.type, EFSetOp_None, EFSetOp_WaitFree)) {
-                    break;
-                }
-            } else {
-                help_finish();
+        while (freeze_ == false) {
+            if (os::Atomic<bool>::compare_and_swap(&freeze_, false, true) == true) {
                 break;
             }
         }
     }
 
-    bool help_finish(void) {
-        FSetOp &op = node_.op;
-        op.resp = false;
-        if (op.type != EFSetOp_None && op.type != EFSetOp_WaitFree) {
-            bool is_exist = node_.exist(op.val);
-            if (op.type == EFSetOp_Insert) {
-                if (is_exist == false && node_.insert(op.val) == true) {
-                    op.resp = true;
-                }
-            } else {
-                if (is_exist == true && node_.remove(op.val) == true) {
-                    op.resp = true;
-                }
+    bool invoke(const FSetOp &op) {
+        while (freeze_ == false) {
+            bool ret = false;
+            if (op.type == EFSetOp_Insert && node_.exist(op.val) == false) {
+                ret = node_.insert(op.val);
+            } else if (op.type == EFSetOp_Remove && node_.exist(op.val) == true) {
+                ret = node_.remove(op.val);
             }
+            return ret;
         }
-        op.prio = -1; // -1表示∞
-        return op.resp;
+        return false;
     }
 
-    bool has_member(FSetValue val) {
-        FSetOp &op = node_.op;
-        if (op.type != EFSetOp_None && op.type != EFSetOp_WaitFree && op.val.value == val.value) {
-            return op.type == EFSetOp_Insert;
-        }
-        return node_.exist(val);
+    bool exist(const FSetOp &op) {
+        return node_.exist(op.val);
     }
-
 public:
     FSetNode node_;
-    bool flag_;
+    bool freeze_; // false：表示没有冻结，true：表示冻结
 };
 
 class HNode {
@@ -238,8 +189,22 @@ public:
     }
 
     // 添加功能什么时候扩大哈希表，什么时候缩小哈希表
-
+    // TODO:增加删除，接口，添加单元测试，修改hash函数
 private:
+    bool apply(FSetOp op) {
+        while (true) {
+            int pos = hash(op.val.value, curr_size_);
+            if (buckets_ptr_[pos] == nullptr) {
+                init_buckets(pos);
+            }
+
+            if (buckets_ptr_[pos]->invoke(op) == true) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     int resize(bool grow) {
         if (curr_size_ < 2) {
             return curr_size_;
