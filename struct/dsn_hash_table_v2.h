@@ -4,12 +4,11 @@
 #include "basic/basic_head.h"
 #include "system/system.h"
 
-#define FSETNODE_VALUE_MAX_SIZE     256
+#define FSETNODE_VALUE_MAX_SIZE     32
 #define FSET_BUCKETS_INIT_SIZE      16
 
 enum EFSetOp {
     EFSetOp_None,
-    EFSetOp_WaitFree,
     EFSetOp_Insert,
     EFSetOp_Remove,
 };
@@ -34,22 +33,19 @@ struct FSetValue {
 struct FSetOp {
     EFSetOp type;
     FSetValue val;
-    bool resp;
-    int prio;
 
     FSetOp(void)
-    :type(EFSetOp_None),
-    resp(false),
-    prio(0)
+    :type(EFSetOp_None)
     {}
 };
 
 struct FSetNode {
-    FSetNode(uint32_t size = FSETNODE_VALUE_MAX_SIZE)
-    :size_(0),
-    max_size_(size),
-    is_resizing_(false) {
-        values_ptr = new FSetValue[size];
+    FSetNode(void)
+    :size_(0){
+        for (int i = 0; i < 4; ++i) {
+            values_ptr[i] = nullptr;
+        }
+        values_ptr[0] = new FSetValue[FSETNODE_VALUE_MAX_SIZE];
     }
 
     ~FSetNode(void) {
@@ -60,9 +56,15 @@ struct FSetNode {
     }
 
     bool exist(const FSetValue &val) {
-        for (int i = 0; i < max_size_; ++i) {
-            if (values_ptr[i].valid == true && val.value == values_ptr[i].value) {
-                return true;
+        for (int j = 0; j < 4; ++j) {
+            if (values_ptr[j] == nullptr) {
+                continue;
+            }
+
+            for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+                if (values_ptr[j][i].valid == true && val.value == values_ptr[j][i].value) {
+                    return true;
+                }
             }
         }
 
@@ -70,11 +72,17 @@ struct FSetNode {
     }
 
     bool remove(const FSetValue &val) {
-        for (int i = 0; i < max_size_; ++i) {
-            if (values_ptr[i].valid == true && val.value == values_ptr[i].value) {
-                if (os::Atomic<bool>::compare_and_swap(&values_ptr[i].valid, true, false)) {
-                    os::Atomic<int>::fetch_and_sub(&size_, 1);
-                    return true;
+        for (int j = 0; j < 4; ++j) {
+            if (values_ptr[j] == nullptr) {
+                continue;
+            }
+
+            for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+                if (values_ptr[j][i].valid == true && val.value == values_ptr[j][i].value) {
+                    if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false)) {
+                        os::Atomic<int>::fetch_and_sub(&size_, 1);
+                        return true;
+                    }
                 }
             }
         }
@@ -85,15 +93,21 @@ struct FSetNode {
     // 之后继续进行插入新值，那么已经被删除的值又被恢复了。
     // 或是继续采用固定长度的数组思考
     bool insert(const FSetValue &val) {
-        if (exist(val) == true) {
-            return false;
-        }
-        
-        for (int i = 0; i < max_size_; ++i) {
-            if (os::Atomic<bool>::compare_and_swap(&values_ptr[i].valid, false, true)) {
-                values_ptr[i].value = val.value;
-                os::Atomic<int>::fetch_and_add(&size_, 1);
-                return true;
+        for (int j = 0; j < 4; ++j) {
+            if (values_ptr[j] == nullptr) {
+                auto tmp_ptr = new FSetValue[FSETNODE_VALUE_MAX_SIZE];
+                bool ret = os::Atomic<FSetValue*>::compare_and_swap(&values_ptr[j], nullptr, tmp_ptr);
+                if (ret == false) {
+                    delete[] tmp_ptr;
+                }
+            }
+
+            for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+                if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, false, true)) {
+                    values_ptr[j][i].value = val.value;
+                    os::Atomic<int>::fetch_and_add(&size_, 1);
+                    return true;
+                }
             }
         }
 
@@ -105,13 +119,20 @@ struct FSetNode {
     // 从本地读取数据到node中
     int split(FSetNode &node, int key, int des) {
         int move_size = 0;
-        for (int i = 0; i < max_size_; ++i) {
-            if (values_ptr[i].valid == true && hash(key, values_ptr[i].value) == des) {
-                if (os::Atomic<bool>::compare_and_swap(&values_ptr[i].valid, true, false) && node.insert(values_ptr[i]) == true) {
-                    os::Atomic<int>::fetch_and_sub(&size_, 1);
-                    ++move_size;
-                } else {
-                    break;
+
+        for (int j = 0; j < 4; ++j) {
+            if (values_ptr[j] == nullptr) {
+                continue;
+            }
+
+            for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+                if (values_ptr[j][i].valid == true && hash(key, values_ptr[j][i].value) == des) {
+                    if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false) && node.insert(values_ptr[j][i]) == true) {
+                        os::Atomic<int>::fetch_and_sub(&size_, 1);
+                        ++move_size;
+                    } else {
+                        break;
+                    }
                 }
             }
         }
@@ -121,24 +142,27 @@ struct FSetNode {
     // 从本地读取数据到node中
     int merge(FSetNode &node) {
         int move_size = 0;
-        for (int i = 0; i < max_size_; ++i) {
-            if (values_ptr[i].valid == true) {
-                if (os::Atomic<bool>::compare_and_swap(&values_ptr[i].valid, true, false) && node.insert(values_ptr[i])) {
-                    os::Atomic<int>::fetch_and_sub(&size_, 1);
-                    ++move_size;
-                } else {
-                    break;
+        for (int j = 0; j < 4; ++j) {
+            if (values_ptr[j] == nullptr) {
+                continue;
+            }
+            for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+                if (values_ptr[j][i].valid == true) {
+                    if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false) && node.insert(values_ptr[j][i])) {
+                        os::Atomic<int>::fetch_and_sub(&size_, 1);
+                        ++move_size;
+                    } else {
+                        break;
+                    }
                 }
             }
         }
         return move_size;
     }
 public:
-    FSetValue *values_ptr;
+    FSetValue *values_ptr[4];
     FSetOp op;
     uint32_t size_;         // 当前数据的长度
-    uint32_t max_size_;     // 数组的最大存储数量
-    bool is_resizing_;      // 正在重新调整缓存大小
 };
 
 class FSet {
@@ -175,22 +199,77 @@ public:
     bool freeze_; // false：表示没有冻结，true：表示冻结
 };
 
-class HNode {
+class DSHashSet {
 public:
-    HNode(void)
+    DSHashSet(void)
+    :max_data_size_(0)
     {
     }
 
-    ~HNode(void) {
+    ~DSHashSet(void) {
         if (buckets_ptr_ != nullptr) {
             delete buckets_ptr_;
             buckets_ptr_ = nullptr;
         }
     }
 
-    // 添加功能什么时候扩大哈希表，什么时候缩小哈希表
-    // TODO:增加删除，接口，添加单元测试，修改hash函数
+    bool insert(const int &key) {
+        FSetOp op;
+        op.val.value  = key;
+        op.type = EFSetOp_Insert;
+
+        bool ret = apply(op);
+        if (ret == true) {
+            when_resize_hash_table();
+        }
+
+        return ret;
+    }
+    bool remove(const int &key) {
+        FSetOp op;
+        op.val.value  = key;
+        op.type = EFSetOp_Remove;
+
+        bool ret = apply(op);
+        if (ret == true) {
+            when_resize_hash_table();
+        }
+
+        return ret;
+    }
+
+    // hash 函数改成murmur32
 private:
+    int when_resize_hash_table(void) 
+    {
+        unsigned total_size = 0;
+        for (int i = 0; i < curr_size_; ++i) {
+            if (buckets_ptr_[i] != nullptr) {
+                total_size += buckets_ptr_[i]->node_.size();
+                // 当莫个桶中元素达到最大值时进行扩大
+                if (buckets_ptr_[i]->node_.size() ==  4 * FSETNODE_VALUE_MAX_SIZE) {
+                    return resize(true);
+                }
+            }
+        }
+
+        for (int i = 0; i < pred_size_; ++i) {
+            if (pred_buckets_ptr_[i] != nullptr) {
+                total_size += pred_buckets_ptr_[i]->node_.size();
+            }
+        }
+
+        // 当数据最大容量的超过3分之二时进行扩大
+        if (total_size > 0.6 * max_data_size_) {
+            return resize(true);
+        }
+
+        // 当数据的容量小于桶的数量时进行缩减
+        if (total_size < curr_size_) {
+            return resize(false);
+        }
+    }
+
     bool apply(FSetOp op) {
         while (true) {
             int pos = hash(op.val.value, curr_size_);
@@ -206,7 +285,7 @@ private:
     }
 
     int resize(bool grow) {
-        if (curr_size_ < 2) {
+        if (curr_size_ <= 16) { // 最小维持16个桶
             return curr_size_;
         }
 
@@ -227,6 +306,9 @@ private:
         int size = (grow == true ? curr_size_ * 2 : curr_size_ / 2);
         FSet **tmp_buckets_ptr_ = new FSet*[size];
         os::Atomic<FSet**>::compare_and_swap(&buckets_ptr_, buckets_ptr_, tmp_buckets_ptr_);
+
+        // 计算当前哈希表存储数据的上限
+        max_data_size_ = size * FSETNODE_VALUE_MAX_SIZE;
 
         return size;
     }
@@ -257,11 +339,13 @@ private:
     }
 
 private:
-    int curr_size_;
+    unsigned curr_size_;
     FSet **buckets_ptr_;        // 当前的hash数据集
 
-    int pred_size_;
+    unsigned pred_size_;
     FSet **pred_buckets_ptr_;   // 前置的hash数据集
+
+    unsigned max_data_size_;
 };
 
 #endif

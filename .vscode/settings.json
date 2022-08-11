@@ -11,6 +11,11 @@
         "iostream": "cpp",
         "new": "cpp",
         "stdexcept": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "optional": "cpp",
+        "system_error": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "variant": "cpp"
     }
 }
