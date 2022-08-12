@@ -10,16 +10,6 @@ set(CXX_FLAGS
     # -DVALGRIND
     -DCHECK_PTHREAD_RETURN_VALUE
     -D_FILE_OFFSET_BITS=64
-    -Wall
-    -Wextra
-    -Werror
-    -Wconversion
-    -Wno-unused-parameter
-    -Wold-style-cast
-    -Woverloaded-virtual
-    -Wpointer-arith
-    -Wshadow
-    -Wwrite-strings
     -march=native
     # -MMD
     -rdynamic
@@ -36,6 +26,7 @@ target_include_directories(wedb PRIVATE struct)
 
 target_link_directories(wedb PRIVATE ./lib/debug/)
 
+target_link_libraries(wedb PRIVATE algorithmd)
 target_link_libraries(wedb PRIVATE systemd)
 target_link_libraries(wedb PRIVATE gtest)
 target_link_libraries(wedb PRIVATE pthread)

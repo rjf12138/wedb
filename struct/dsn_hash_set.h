@@ -3,6 +3,7 @@
 
 #include "basic/basic_head.h"
 #include "system/system.h"
+#include "algorithm/algorithm.h"
 
 #define FSETNODE_VALUE_MAX_SIZE     32
 #define FSET_BUCKETS_INIT_SIZE      16
@@ -13,8 +14,10 @@ enum EFSetOp {
     EFSetOp_Remove,
 };
 
-int hash(int key, int value) {
-    return value % key; 
+int hash(int key) {
+    int ret = 0;
+    algorithm::murmurhash3_x86_32(&key, sizeof(key), 12138, &ret);
+    return ret;
 }
 
 struct FSetValue {
@@ -49,9 +52,10 @@ struct FSetNode {
     }
 
     ~FSetNode(void) {
-        if (values_ptr != nullptr) {
-            delete []values_ptr;
-            size_ = 0;
+        for (int i = 0; i < 4; ++i) {
+            if (values_ptr[i] != nullptr) {
+                delete []values_ptr[i];
+            }
         }
     }
 
@@ -126,7 +130,7 @@ struct FSetNode {
             }
 
             for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
-                if (values_ptr[j][i].valid == true && hash(key, values_ptr[j][i].value) == des) {
+                if (values_ptr[j][i].valid == true && hash(key) == des) {
                     if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false) && node.insert(values_ptr[j][i]) == true) {
                         os::Atomic<int>::fetch_and_sub(&size_, 1);
                         ++move_size;
@@ -225,6 +229,7 @@ public:
 
         return ret;
     }
+
     bool remove(const int &key) {
         FSetOp op;
         op.val.value  = key;
@@ -238,6 +243,23 @@ public:
         return ret;
     }
 
+    bool exist(const int &key) {
+        FSetOp op;
+        op.val.value  = key;
+        for (int i = 0; i < curr_size_; ++i) {
+            if (buckets_ptr_[i]->exist(op) == true) {
+                return true;
+            }
+        }
+
+        for (int i = 0; i < pred_size_; ++i) {
+            if (pred_buckets_ptr_[i]->exist(op) == true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
     // hash 函数改成murmur32
 private:
     int when_resize_hash_table(void) 
@@ -272,7 +294,7 @@ private:
 
     bool apply(FSetOp op) {
         while (true) {
-            int pos = hash(op.val.value, curr_size_);
+            int pos = hash(op.val.value);
             if (buckets_ptr_[pos] == nullptr) {
                 init_buckets(pos);
             }
@@ -318,7 +340,7 @@ private:
         if (bucket_ptr == nullptr && pred_buckets_ptr_ != nullptr) {
             FSet *new_bucket_ptr = new FSet();
             if (this->curr_size_ == pred_size_ * 2) {
-                FSet *pred_bucket_ptr = pred_buckets_ptr_[hash(pos, pred_size_)];
+                FSet *pred_bucket_ptr = pred_buckets_ptr_[hash(pos)];
                 if (pred_bucket_ptr != nullptr) {
                     pred_bucket_ptr->freeze();
                     pred_bucket_ptr->node_.split(new_bucket_ptr->node_, pos, bucket_ptr->node_.size());

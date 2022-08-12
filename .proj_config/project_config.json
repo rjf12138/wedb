@@ -3,7 +3,8 @@
 		"gtest",
 		"basic",
 		"system",
-		"data_structure"
+		"data_structure",
+		"algorithm"
 	],"ChooseCompiler": [
 		{
 			"CompilerName": "g++",
@@ -33,7 +34,8 @@
 			"systemd",
 			"gtest",
 			"pthread",
-			"basicd"
+			"basicd",
+			"algorithmd"
 		],"release": [
 			
 		]

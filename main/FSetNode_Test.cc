@@ -1,4 +1,4 @@
-#include "dsn_hash_table_v2.h"
+#include "dsn_hash_set.h"
 #include "gtest/gtest.h"
 
 using namespace basic;
@@ -69,9 +69,9 @@ TEST_F(DSNHashTableTest, FSetNode)
         os::Time::sleep(50);
     }
 
-    for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
-        fprintf(stderr, "vaild: %s, val: %d\n", node.values[i].valid ? "true":"false", node.values[i].value);
-    }
+    // for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+    //     fprintf(stderr, "vaild: %s, val: %d\n", node.values[i].valid ? "true":"false", node.values[i].value);
+    // }
 }
 
 }
