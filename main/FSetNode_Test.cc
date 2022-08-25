@@ -7,7 +7,7 @@ namespace my {
 namespace project {
 namespace {
 
-class DSNHashTableTest : public ::testing::Test {
+class DSHashSetTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Code here will be called immediately after the constructor (right
@@ -20,9 +20,29 @@ protected:
     }
 };
 
-TEST_F(DSNHashTableTest, FSetNode)
+TEST_F(DSHashSetTest, DSHashSetBasicTest)
 {
-    
+    DSHashSet ds_set;
+    int max_value = 8;
+    for (int i = 0; i < max_value; ++i) {
+        LOG_GLOBAL_DEBUG("Insert i = %d", i);
+        EXPECT_EQ(ds_set.insert(i), true);
+    }
+
+    for (int i = 0; i < max_value; ++i) {
+        LOG_GLOBAL_DEBUG("Exist_1 i = %d", i);
+        EXPECT_EQ(ds_set.exist(i), true);
+    }
+
+    for (int i = 0; i < max_value; ++i) {
+        LOG_GLOBAL_DEBUG("Remove i = %d", i);
+        EXPECT_EQ(ds_set.remove(i), true);
+    }
+
+    for (int i = 0; i < max_value; ++i) {
+        LOG_GLOBAL_DEBUG("Exist_2 i = %d", i);
+        EXPECT_EQ(ds_set.exist(i), false);
+    }
 }
 
 

@@ -14,7 +14,7 @@ enum EFSetOp {
     EFSetOp_Remove,
 };
 
-extern int hash(int key);
+extern int hash(int key, int hash_pos);
 
 // 哈希表但个值，最小单位
 struct FSetValue {

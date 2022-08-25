@@ -16,6 +16,9 @@
         "system_error": "cpp",
         "tuple": "cpp",
         "type_traits": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "memory": "cpp"
     }
 }
