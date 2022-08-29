@@ -5,7 +5,9 @@
 #include "system/system.h"
 #include "algorithm/algorithm.h"
 
-#define FSETNODE_VALUE_MAX_SIZE     32
+#define FSETNODE_ARRAY_AMOUNT       4
+#define FSETNODE_ARRAY_SIZE         32
+#define FSETNODE_MAX_SIZE           (FSETNODE_ARRAY_AMOUNT * FSETNODE_ARRAY_SIZE)
 #define FSET_BUCKETS_INIT_SIZE      16
 
 enum EFSetOp {
@@ -14,7 +16,7 @@ enum EFSetOp {
     EFSetOp_Remove,
 };
 
-extern int hash(int key, int hash_pos);
+extern unsigned hash(int key, int hash_pos);
 
 // 哈希表但个值，最小单位
 struct FSetValue {
@@ -58,6 +60,7 @@ public:
     // 从本地读取数据到node中
     int merge(FSetNode &node);
 
+    void print(void);
 public:
     FSetValue *values_ptr[4];
     FSetOp op;
@@ -89,6 +92,7 @@ public:
     bool remove(const int &key);
     bool exist(const int &key);
 
+    void print(void);
 private:
     int when_resize_hash_table(void);
     bool apply(FSetOp op);

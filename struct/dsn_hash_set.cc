@@ -1,8 +1,8 @@
 #include "dsn_hash_set.h"
 
-int hash(int key, int hash_pos) 
+unsigned hash(int key, int hash_pos) 
 {
-    int ret = 0;
+    unsigned ret = 0;
     algorithm::murmurhash3_x86_32(&key, sizeof(key), 12138, &ret);
     return ret % hash_pos;
 }
@@ -11,15 +11,15 @@ int hash(int key, int hash_pos)
 FSetNode::FSetNode(void)
 :size_(0)
 {
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < FSETNODE_ARRAY_AMOUNT; ++i) {
         values_ptr[i] = nullptr;
     }
-    values_ptr[0] = new FSetValue[FSETNODE_VALUE_MAX_SIZE];
+    values_ptr[0] = new FSetValue[FSETNODE_ARRAY_SIZE];
 }
 
 FSetNode::~FSetNode(void) 
 {
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < FSETNODE_MAX_SIZE; ++i) {
         if (values_ptr[i] != nullptr) {
             delete []values_ptr[i];
         }
@@ -29,12 +29,12 @@ FSetNode::~FSetNode(void)
 bool 
 FSetNode::exist(const FSetValue &val) 
 {
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
         if (values_ptr[j] == nullptr) {
             continue;
         }
 
-        for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+        for (int i = 0; i < FSETNODE_ARRAY_SIZE; ++i) {
             if (values_ptr[j][i].valid == true && val.value == values_ptr[j][i].value) {
                 return true;
             }
@@ -47,12 +47,12 @@ FSetNode::exist(const FSetValue &val)
 bool 
 FSetNode::remove(const FSetValue &val) 
 {
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
         if (values_ptr[j] == nullptr) {
             continue;
         }
 
-        for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+        for (int i = 0; i < FSETNODE_ARRAY_SIZE; ++i) {
             if (values_ptr[j][i].valid == true && val.value == values_ptr[j][i].value) {
                 if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false)) {
                     os::Atomic<int>::fetch_and_sub(&size_, 1);
@@ -67,16 +67,16 @@ FSetNode::remove(const FSetValue &val)
 bool 
 FSetNode::insert(const FSetValue &val) 
 {
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
         if (values_ptr[j] == nullptr) {
-            auto tmp_ptr = new FSetValue[FSETNODE_VALUE_MAX_SIZE];
+            auto tmp_ptr = new FSetValue[FSETNODE_ARRAY_SIZE];
             bool ret = os::Atomic<FSetValue*>::compare_and_swap(&values_ptr[j], nullptr, tmp_ptr);
             if (ret == false) {
                 delete[] tmp_ptr;
             }
         }
 
-        for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+        for (int i = 0; i < FSETNODE_ARRAY_SIZE; ++i) {
             if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, false, true)) {
                 values_ptr[j][i].value = val.value;
                 os::Atomic<int>::fetch_and_add(&size_, 1);
@@ -99,14 +99,13 @@ int
 FSetNode::split(FSetNode &node, int key, int des) 
 {
     int move_size = 0;
-
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
         if (values_ptr[j] == nullptr) {
             continue;
         }
 
-        for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
-            if (values_ptr[j][i].valid == true && hash(key, des) == des) {
+        for (int i = 0; i < FSETNODE_ARRAY_SIZE; ++i) {
+            if (values_ptr[j][i].valid == true && hash(values_ptr[j][i].value, des) == key) {
                 if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false) && node.insert(values_ptr[j][i]) == true) {
                     os::Atomic<int>::fetch_and_sub(&size_, 1);
                     ++move_size;
@@ -124,11 +123,11 @@ int
 FSetNode::merge(FSetNode &node) 
 {
     int move_size = 0;
-    for (int j = 0; j < 4; ++j) {
+    for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
         if (values_ptr[j] == nullptr) {
             continue;
         }
-        for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+        for (int i = 0; i < FSETNODE_ARRAY_SIZE; ++i) {
             if (values_ptr[j][i].valid == true) {
                 if (os::Atomic<bool>::compare_and_swap(&values_ptr[j][i].valid, true, false) && node.insert(values_ptr[j][i])) {
                     os::Atomic<int>::fetch_and_sub(&size_, 1);
@@ -140,6 +139,27 @@ FSetNode::merge(FSetNode &node)
         }
     }
     return move_size;
+}
+
+void 
+FSetNode::print(void)
+{
+    int cnt = 0;
+    for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
+        if (values_ptr[j] == nullptr) {
+            continue;
+        }
+        for (int i = 0; i < FSETNODE_ARRAY_SIZE; ++i) {
+            if (values_ptr[j][i].valid == true) {
+                fprintf(stdout, "%d ", values_ptr[j][i].value);
+                ++cnt;
+                if (cnt % 15 == 0) {
+                    fprintf(stdout, "\n");
+                }
+            }
+        }
+    }
+    fprintf(stdout, "\n");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -188,7 +208,7 @@ pred_size_(0),
 pred_buckets_ptr_(nullptr)
 {
     buckets_ptr_ = new FSet*[FSET_BUCKETS_INIT_SIZE];
-    max_data_size_ = FSET_BUCKETS_INIT_SIZE * FSETNODE_VALUE_MAX_SIZE * 4;
+    max_data_size_ = FSET_BUCKETS_INIT_SIZE * FSETNODE_MAX_SIZE;
 }
 
 DSHashSet::~DSHashSet(void) 
@@ -211,12 +231,7 @@ DSHashSet::insert(const int &key)
     op.val.value  = key;
     op.type = EFSetOp_Insert;
 
-    bool ret = apply(op);
-    if (ret == true) {
-        when_resize_hash_table();
-    }
-
-    return ret;
+    return apply(op);
 }
 
 bool 
@@ -226,12 +241,7 @@ DSHashSet::remove(const int &key)
     op.val.value  = key;
     op.type = EFSetOp_Remove;
 
-    bool ret = apply(op);
-    if (ret == true) {
-        when_resize_hash_table();
-    }
-
-    return ret;
+    return apply(op);
 }
 
 bool 
@@ -261,8 +271,8 @@ DSHashSet::when_resize_hash_table(void)
     for (int i = 0; i < curr_size_; ++i) {
         if (buckets_ptr_[i] != nullptr) {
             total_size += buckets_ptr_[i]->node_.size();
-            // 当莫个桶中元素达到最大值时进行扩大
-            if (buckets_ptr_[i]->node_.size() ==  4 * FSETNODE_VALUE_MAX_SIZE) {
+            // 当莫个桶中元素超过四分之三时进行扩大
+            if (buckets_ptr_[i]->node_.size() > FSETNODE_MAX_SIZE * 0.8) {
                 return resize(true);
             }
         }
@@ -274,8 +284,8 @@ DSHashSet::when_resize_hash_table(void)
         }
     }
 
-    // 当数据最大容量的超过3分之二时进行扩大
-    if (total_size > 0.6 * max_data_size_) {
+    // 当数据最大容量的超过四分之三时进行扩大
+    if (total_size > 0.8 * max_data_size_) {
         return resize(true);
     }
 
@@ -290,23 +300,26 @@ DSHashSet::when_resize_hash_table(void)
 bool 
 DSHashSet::apply(FSetOp op) 
 {
+    bool ret = false;
     while (true) {
         int pos = hash(op.val.value, this->curr_size_);
         if (buckets_ptr_[pos] == nullptr) {
             init_buckets(pos);
         }
 
-        if (buckets_ptr_[pos]->invoke(op) == true) {
-            return true;
+        ret = buckets_ptr_[pos]->invoke(op);
+        if (ret == true) {
+            when_resize_hash_table();
+            break;
         }
     }
-    return false;
+    return ret;
 }
 
 int 
 DSHashSet::resize(bool grow) 
 {
-    if (curr_size_ <= FSET_BUCKETS_INIT_SIZE) { // 最小维持16个桶
+    if (grow == false && curr_size_ <= FSET_BUCKETS_INIT_SIZE) { // 最小维持16个桶
         return curr_size_;
     }
 
@@ -324,15 +337,16 @@ DSHashSet::resize(bool grow)
     delete[] pred_buckets_ptr_;
     pred_buckets_ptr_ = buckets_ptr_;
 
-    int size = (grow == true ? curr_size_ * 2 : curr_size_ / 2);
-    FSet **tmp_buckets_ptr_ = new FSet*[size];
+    pred_size_ = curr_size_;
+    curr_size_ = (grow == true ? curr_size_ * 2 : curr_size_ / 2);
+    FSet **tmp_buckets_ptr_ = new FSet*[curr_size_];
     os::Atomic<FSet**>::compare_and_swap(&buckets_ptr_, buckets_ptr_, tmp_buckets_ptr_);
 
     // 计算当前哈希表存储数据的上限
     // size 桶的数量， FSETNODE_VALUE_MAX_SIZE：FSETNODE单个数组的大小，这个有四个，
-    max_data_size_ = size * FSETNODE_VALUE_MAX_SIZE * 4; 
-
-    return size;
+    max_data_size_ = curr_size_ * FSETNODE_MAX_SIZE; 
+    print();
+    return curr_size_;
 }
 
 void 
@@ -346,7 +360,7 @@ DSHashSet::init_buckets(int pos)
                 FSet *pred_bucket_ptr = pred_buckets_ptr_[hash(pos, pred_size_)];
                 if (pred_bucket_ptr != nullptr) {
                     pred_bucket_ptr->freeze();
-                    pred_bucket_ptr->node_.split(new_bucket_ptr->node_, pos, bucket_ptr->node_.size());
+                    pred_bucket_ptr->node_.split(new_bucket_ptr->node_, pos, curr_size_);
                 }
             } else {
                 if (pred_buckets_ptr_[pos] != nullptr) {
@@ -362,4 +376,29 @@ DSHashSet::init_buckets(int pos)
         }
         os::Atomic<FSet*>::compare_and_swap(&buckets_ptr_[pos], nullptr, new_bucket_ptr);
     }
+}
+
+
+void 
+DSHashSet::print(void)
+{
+    fprintf(stdout, "================== Bucket Start =================\n");
+    for (unsigned i = 0; i < curr_size_; ++i) {
+        if (buckets_ptr_[i] == nullptr) {
+            continue;
+        } else {
+            fprintf(stdout, "curr_bucket[%d]: \n", i);
+            buckets_ptr_[i]->node_.print();
+        }
+    }
+
+    for (unsigned i = 0; i < pred_size_; ++i) {
+        if (pred_buckets_ptr_[i] == nullptr) {
+            continue;
+        } else {
+            fprintf(stdout, "pred_bucket[%d]: \n", i);
+            pred_buckets_ptr_[i]->node_.print();
+        }
+    }
+    fprintf(stdout, "================== Bucket End =================\n");
 }
