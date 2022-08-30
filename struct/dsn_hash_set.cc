@@ -203,12 +203,13 @@ FSet::exist(const FSetOp &op)
 
 /////////////////////////////////////////////////////////////////////////////////////////
 DSHashSet::DSHashSet(void)
-:curr_size_(FSET_BUCKETS_INIT_SIZE),
+:
+curr_size_(0),
+buckets_ptr_(nullptr),
 pred_size_(0),
 pred_buckets_ptr_(nullptr)
 {
-    buckets_ptr_ = new FSet*[FSET_BUCKETS_INIT_SIZE];
-    max_data_size_ = FSET_BUCKETS_INIT_SIZE * FSETNODE_MAX_SIZE;
+    resize(false);
 }
 
 DSHashSet::~DSHashSet(void) 
@@ -319,27 +320,49 @@ DSHashSet::apply(FSetOp op)
 int 
 DSHashSet::resize(bool grow) 
 {
-    if (grow == false && curr_size_ <= FSET_BUCKETS_INIT_SIZE) { // 最小维持16个桶
-        return curr_size_;
+    if (curr_size_ <= FSET_BUCKETS_INIT_SIZE) {
+        if (curr_size_ == 0) { // 当前大小为空时进行初始化
+            buckets_ptr_ = new FSet*[FSET_BUCKETS_INIT_SIZE];
+            for (int i = 0; i < FSET_BUCKETS_INIT_SIZE; ++i) {
+                buckets_ptr_[i] = nullptr;
+            }
+            curr_size_ = FSET_BUCKETS_INIT_SIZE;
+            max_data_size_ = FSET_BUCKETS_INIT_SIZE * FSETNODE_MAX_SIZE;
+            return curr_size_;
+        }
+
+        // 当库的大小等于初始化大小时，不再进行缩减
+        if (grow == false && curr_size_ == FSET_BUCKETS_INIT_SIZE) {
+            return curr_size_;
+        }
     }
 
     for (int i = 0; i < curr_size_; ++i) {
         init_buckets(i);
     }
 
-    for (int i = 0; i < pred_size_; ++i) {
-        auto tmp_bucket_ptr = pred_buckets_ptr_[i];
-        pred_buckets_ptr_[i] = nullptr;
-        if (tmp_bucket_ptr != nullptr) {
-            delete tmp_bucket_ptr;
+    if (buckets_ptr_ != nullptr) {
+        for (int i = 0; i < pred_size_; ++i) {
+            auto tmp_bucket_ptr = pred_buckets_ptr_[i];
+            pred_buckets_ptr_[i] = nullptr;
+            if (tmp_bucket_ptr != nullptr) {
+                delete tmp_bucket_ptr;
+            }
         }
+        delete[] pred_buckets_ptr_;
+        pred_buckets_ptr_ = buckets_ptr_;
     }
-    delete[] pred_buckets_ptr_;
-    pred_buckets_ptr_ = buckets_ptr_;
 
-    pred_size_ = curr_size_;
-    curr_size_ = (grow == true ? curr_size_ * 2 : curr_size_ / 2);
+    if (curr_size_ >= FSET_BUCKETS_INIT_SIZE) { 
+        pred_size_ = curr_size_;
+        curr_size_ = (grow == true ? curr_size_ * 2 : curr_size_ / 2);
+    } else {
+        curr_size_ = FSET_BUCKETS_INIT_SIZE;
+    }
     FSet **tmp_buckets_ptr_ = new FSet*[curr_size_];
+    for (int i = 0; i < curr_size_; ++i) {
+        tmp_buckets_ptr_[i] = nullptr;
+    }
     os::Atomic<FSet**>::compare_and_swap(&buckets_ptr_, buckets_ptr_, tmp_buckets_ptr_);
 
     // 计算当前哈希表存储数据的上限

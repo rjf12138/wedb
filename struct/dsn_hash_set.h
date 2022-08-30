@@ -6,9 +6,9 @@
 #include "algorithm/algorithm.h"
 
 #define FSETNODE_ARRAY_AMOUNT       4
-#define FSETNODE_ARRAY_SIZE         32
+#define FSETNODE_ARRAY_SIZE         4
 #define FSETNODE_MAX_SIZE           (FSETNODE_ARRAY_AMOUNT * FSETNODE_ARRAY_SIZE)
-#define FSET_BUCKETS_INIT_SIZE      16
+#define FSET_BUCKETS_INIT_SIZE      4
 
 enum EFSetOp {
     EFSetOp_None,

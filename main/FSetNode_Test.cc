@@ -23,8 +23,8 @@ protected:
 TEST_F(DSHashSetTest, DSHashSetBasicTest)
 {
     DSHashSet ds_set;
-    int start_value = -1000;
-    int max_value = 1000;
+    int start_value = -100;
+    int max_value = 100;
     for (int i = start_value; i < max_value; ++i) {
         LOG_GLOBAL_DEBUG("Insert i = %d", i);
         ASSERT_EQ(ds_set.insert(i), true);
