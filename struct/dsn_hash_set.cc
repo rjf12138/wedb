@@ -19,7 +19,7 @@ FSetNode::FSetNode(void)
 
 FSetNode::~FSetNode(void) 
 {
-    for (int i = 0; i < FSETNODE_MAX_SIZE; ++i) {
+    for (int i = 0; i < FSETNODE_ARRAY_AMOUNT; ++i) {
         if (values_ptr[i] != nullptr) {
             delete []values_ptr[i];
         }
@@ -250,16 +250,14 @@ DSHashSet::exist(const int &key)
 {
     FSetOp op;
     op.val.value  = key;
-    for (int i = 0; i < curr_size_; ++i) {
-        if (buckets_ptr_[i] != nullptr && buckets_ptr_[i]->exist(op) == true) {
-            return true;
-        }
+    int pos = hash(key, this->curr_size_);
+    if (buckets_ptr_[pos] != nullptr && buckets_ptr_[pos]->exist(op) == true) {
+        return true;
     }
 
-    for (int i = 0; i < pred_size_; ++i) {
-        if (buckets_ptr_[i] != nullptr && pred_buckets_ptr_[i]->exist(op) == true) {
-            return true;
-        }
+    pos = hash(key, this->pred_size_);
+    if (pred_buckets_ptr_[pos] != nullptr && pred_buckets_ptr_[pos]->exist(op) == true) {
+        return true;
     }
 
     return false;
@@ -272,7 +270,7 @@ DSHashSet::when_resize_hash_table(void)
     for (int i = 0; i < curr_size_; ++i) {
         if (buckets_ptr_[i] != nullptr) {
             total_size += buckets_ptr_[i]->node_.size();
-            // 当莫个桶中元素超过四分之三时进行扩大
+            // 当某个桶中元素超过四分之三时进行扩大
             if (buckets_ptr_[i]->node_.size() > FSETNODE_MAX_SIZE * 0.8) {
                 return resize(true);
             }
@@ -368,7 +366,6 @@ DSHashSet::resize(bool grow)
     // 计算当前哈希表存储数据的上限
     // size 桶的数量， FSETNODE_VALUE_MAX_SIZE：FSETNODE单个数组的大小，这个有四个，
     max_data_size_ = curr_size_ * FSETNODE_MAX_SIZE; 
-    print();
     return curr_size_;
 }
 
@@ -379,21 +376,10 @@ DSHashSet::init_buckets(int pos)
     if (bucket_ptr == nullptr) {
         FSet *new_bucket_ptr = new FSet();
         if (pred_buckets_ptr_ != nullptr){
-            if (this->curr_size_ == pred_size_ * 2) {
-                FSet *pred_bucket_ptr = pred_buckets_ptr_[hash(pos, pred_size_)];
-                if (pred_bucket_ptr != nullptr) {
-                    pred_bucket_ptr->freeze();
-                    pred_bucket_ptr->node_.split(new_bucket_ptr->node_, pos, curr_size_);
-                }
-            } else {
-                if (pred_buckets_ptr_[pos] != nullptr) {
-                    pred_buckets_ptr_[pos]->freeze();
-                    pred_buckets_ptr_[pos]->node_.merge(new_bucket_ptr->node_);
-                }
-
-                if (pred_buckets_ptr_[pos + pred_size_] != nullptr) {
-                    pred_buckets_ptr_[pos + pred_size_]->freeze();
-                    pred_buckets_ptr_[pos + pred_size_]->node_.merge(new_bucket_ptr->node_);
+            for (int i = 0; i < pred_size_; ++i) {
+                if (pred_buckets_ptr_[i] != nullptr) {
+                    pred_buckets_ptr_[i]->freeze();
+                    pred_buckets_ptr_[i]->node_.split(new_bucket_ptr->node_, pos, curr_size_);
                 }
             }
         }
@@ -405,23 +391,27 @@ DSHashSet::init_buckets(int pos)
 void 
 DSHashSet::print(void)
 {
+    int total = 0;
     fprintf(stdout, "================== Bucket Start =================\n");
     for (unsigned i = 0; i < curr_size_; ++i) {
         if (buckets_ptr_[i] == nullptr) {
             continue;
         } else {
-            fprintf(stdout, "curr_bucket[%d]: \n", i);
+            fprintf(stdout, "curr_bucket[%d]: %d\n", i, buckets_ptr_[i]->node_.size());
             buckets_ptr_[i]->node_.print();
+            total += buckets_ptr_[i]->node_.size();
         }
     }
-
+    fprintf(stdout, "\n");
     for (unsigned i = 0; i < pred_size_; ++i) {
         if (pred_buckets_ptr_[i] == nullptr) {
             continue;
         } else {
-            fprintf(stdout, "pred_bucket[%d]: \n", i);
+            fprintf(stdout, "pred_bucket[%d]: %d\n", i, pred_buckets_ptr_[i]->node_.size());
             pred_buckets_ptr_[i]->node_.print();
+            total += pred_buckets_ptr_[i]->node_.size();
         }
     }
+    fprintf(stdout, "Total size: %d\n", total);
     fprintf(stdout, "================== Bucket End =================\n");
 }

@@ -23,30 +23,30 @@ protected:
 TEST_F(DSHashSetTest, DSHashSetBasicTest)
 {
     DSHashSet ds_set;
-    int start_value = -100;
-    int max_value = 100;
+    int start_value = -99999;
+    int max_value = 99999;
     for (int i = start_value; i < max_value; ++i) {
-        LOG_GLOBAL_DEBUG("Insert i = %d", i);
+        //LOG_GLOBAL_DEBUG("Insert i = %d", i);
         ASSERT_EQ(ds_set.insert(i), true);
     }
-    ds_set.print();
+    //ds_set.print();
     for (int i = start_value; i < max_value; ++i) {
-        LOG_GLOBAL_DEBUG("Exist_1 i = %d", i);
+        //LOG_GLOBAL_DEBUG("Exist_1 i = %d", i);
         ASSERT_EQ(ds_set.exist(i), true);
     }
 
     for (int i = start_value; i < max_value; ++i) {
-        LOG_GLOBAL_DEBUG("Remove i = %d", i);
+        //LOG_GLOBAL_DEBUG("Remove i = %d", i);
         ASSERT_EQ(ds_set.remove(i), true);
     }
-    ds_set.print();
+    //ds_set.print();
     for (int i = start_value; i < max_value; ++i) {
-        LOG_GLOBAL_DEBUG("Exist_2 i = %d", i);
+        //LOG_GLOBAL_DEBUG("Exist_2 i = %d", i);
         ASSERT_EQ(ds_set.exist(i), false);
     }
 }
 
-
+// 测试多线程
 // struct FSetTask {
 //     FSetValue val;
 //     FSetNode *lfset_ptr;
