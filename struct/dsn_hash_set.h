@@ -2,6 +2,7 @@
 #define _DYNAMIC_SIZED_V2__
 
 #include "basic/basic_head.h"
+#include "basic/logger.h"
 #include "system/system.h"
 #include "algorithm/algorithm.h"
 
@@ -80,6 +81,7 @@ public:
 public:
     FSetNode node_;
     bool freeze_; // false：表示没有冻结，true：表示冻结
+    int index_;
 };
 
 // 动态分配的哈希集合
@@ -91,6 +93,7 @@ public:
     bool insert(const int &key);
     bool remove(const int &key);
     bool exist(const int &key);
+    int size(void);
 
     void print(void);
 

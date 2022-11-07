@@ -19,12 +19,19 @@ protected:
         // before the destructor).
     }
 };
-
+// todo: 内存有没释放掉的
 TEST_F(DSHashSetTest, DSHashSetBasicTest)
 {
     DSHashSet ds_set;
     int start_value = -99999;
     int max_value = 99999;
+
+    // 测试在完全为空初始状态进行判断是否存在和删除操作
+    for (int i = start_value; i < max_value; ++i) {
+        ASSERT_EQ(ds_set.exist(i), false); // 测试数据为空的情况
+        ASSERT_EQ(ds_set.remove(i), false); // 测试数据为空的情况
+    }
+
     for (int i = start_value; i < max_value; ++i) {
         //LOG_GLOBAL_DEBUG("Insert i = %d", i);
         ASSERT_EQ(ds_set.insert(i), true);

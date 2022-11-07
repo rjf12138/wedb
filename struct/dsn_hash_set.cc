@@ -163,12 +163,18 @@ FSetNode::print(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static int i = 0;
 FSet::FSet(void) 
     :freeze_(false) 
 {
+    index_ = ++i;
+    LOG_GLOBAL_INFO("Create %d", index_);
 }
 
-FSet::~FSet(void) {}
+FSet::~FSet(void) 
+{
+    LOG_GLOBAL_INFO("Destroy %d", index_);
+}
 
 void 
 FSet::freeze(void) 
@@ -215,11 +221,21 @@ pred_buckets_ptr_(nullptr)
 DSHashSet::~DSHashSet(void) 
 {
     if (buckets_ptr_ != nullptr) {
+        for (int i = 0; i < curr_size_; ++i) {
+            if (buckets_ptr_[i] != nullptr) {
+                delete buckets_ptr_[i];
+            }
+        }
         delete []buckets_ptr_;
         buckets_ptr_ = nullptr;
     }
 
     if (pred_buckets_ptr_ != nullptr) {
+        for (int i = 0; i < pred_size_; ++i) {
+            if (pred_buckets_ptr_[i] != nullptr) {
+                delete pred_buckets_ptr_[i];
+            }
+        }
         delete [] buckets_ptr_;
         pred_buckets_ptr_ = nullptr;
     }
@@ -255,9 +271,11 @@ DSHashSet::exist(const int &key)
         return true;
     }
 
-    pos = hash(key, this->pred_size_);
-    if (pred_buckets_ptr_[pos] != nullptr && pred_buckets_ptr_[pos]->exist(op) == true) {
-        return true;
+    if (this->pred_size_ > 0) {
+        pos = hash(key, this->pred_size_);
+        if (pred_buckets_ptr_[pos] != nullptr && pred_buckets_ptr_[pos]->exist(op) == true) {
+            return true;
+        }
     }
 
     return false;
@@ -300,17 +318,14 @@ bool
 DSHashSet::apply(FSetOp op) 
 {
     bool ret = false;
-    while (true) {
-        int pos = hash(op.val.value, this->curr_size_);
-        if (buckets_ptr_[pos] == nullptr) {
-            init_buckets(pos);
-        }
+    int pos = hash(op.val.value, this->curr_size_);
+    if (buckets_ptr_[pos] == nullptr) {
+        init_buckets(pos);
+    }
 
-        ret = buckets_ptr_[pos]->invoke(op);
-        if (ret == true) {
-            when_resize_hash_table();
-            break;
-        }
+    ret = buckets_ptr_[pos]->invoke(op);
+    if (ret == true) {
+        when_resize_hash_table();
     }
     return ret;
 }
@@ -349,6 +364,7 @@ DSHashSet::resize(bool grow)
         }
         delete[] pred_buckets_ptr_;
         pred_buckets_ptr_ = buckets_ptr_;
+        buckets_ptr_ = nullptr;
     }
 
     if (curr_size_ >= FSET_BUCKETS_INIT_SIZE) { 
@@ -361,7 +377,7 @@ DSHashSet::resize(bool grow)
     for (int i = 0; i < curr_size_; ++i) {
         tmp_buckets_ptr_[i] = nullptr;
     }
-    os::Atomic<FSet**>::compare_and_swap(&buckets_ptr_, buckets_ptr_, tmp_buckets_ptr_);
+    os::Atomic<FSet**>::compare_and_swap(&buckets_ptr_, nullptr, tmp_buckets_ptr_);
 
     // 计算当前哈希表存储数据的上限
     // size 桶的数量， FSETNODE_VALUE_MAX_SIZE：FSETNODE单个数组的大小，这个有四个，
