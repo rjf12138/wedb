@@ -19,7 +19,7 @@ protected:
         // before the destructor).
     }
 };
-// todo: 内存有没释放掉的
+
 TEST_F(DSHashSetTest, DSHashSetBasicTest)
 {
     DSHashSet ds_set;
@@ -53,59 +53,138 @@ TEST_F(DSHashSetTest, DSHashSetBasicTest)
     }
 }
 
-// 测试多线程
-// struct FSetTask {
-//     FSetValue val;
-//     FSetNode *lfset_ptr;
-// };
+//测试多线程
+struct Producer {
+    DSHashSet *ds_set;
+    bool *wait_start;
+    int low;
+    int high;
+};
 
-// void* producer(void* arg)
-// {
-//     if (arg == nullptr) {
-//         return nullptr;
-//     }
+struct Consumer {
+    DSHashSet *ds_set;
+    bool *wait_start;
+    bool *mark;
+    int size;
+};
 
-//     FSetTask *lfset_ptr = static_cast<FSetTask*>(arg);
-//     lfset_ptr->lfset_ptr->insert(lfset_ptr->val);
-//     delete lfset_ptr;
-//     return nullptr;
-// }
+void* producer(void* arg)
+{
+    if (arg == nullptr) {
+        return nullptr;
+    }
 
-// TEST_F(DSNHashTableTest, FSetNode)
-// {
-//     // 用多个线程插入和删除进行测试
-//     os::ThreadPool thread_pool;
-//     os::ThreadPoolConfig config = thread_pool.get_threadpool_config();
-//     config.threads_num = 32;
-//     config.max_waiting_task = 2048;
-//     thread_pool.set_threadpool_config(config);
-//     while (true) {
-//         os::ThreadPoolRunningInfo info = thread_pool.get_running_info();
-//         if (info.idle_threads_num + info.running_threads_num == static_cast<int>(config.threads_num)) {
-//             break;
-//         }
-//     }
+    Producer *lfset_ptr = static_cast<Producer*>(arg);
+    while (*(lfset_ptr->wait_start) == true) {
+        ;
+    }
 
-//     FSetNode node;
-//     for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
-//         FSetTask *task_ptr = new FSetTask;
-//         task_ptr->lfset_ptr = &node;
-//         task_ptr->val = FSetValue(i);
+    for (int i = lfset_ptr->low; i < lfset_ptr->high; ++i) {
+        LOG_GLOBAL_INFO("insert: %d", i);
+        lfset_ptr->ds_set->insert(i);
+    }
+    delete lfset_ptr;
+    return nullptr;
+}
 
-//         os::Task task;
-//         task.work_func = producer;
-//         task.thread_arg = task_ptr;
-//         thread_pool.add_task(task);
-//     }
+void* consumers(void* arg)
+{
+    if (arg == nullptr) {
+        return nullptr;
+    }
 
-//     while (thread_pool.get_running_info().waiting_tasks > 0) {
-//         os::Time::sleep(50);
-//     }
+    Consumer *lfset_ptr = static_cast<Consumer*>(arg);
+    while (*(lfset_ptr->wait_start) == true) {
+        ;
+    }
 
-//     // for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
-//     //     fprintf(stderr, "vaild: %s, val: %d\n", node.values[i].valid ? "true":"false", node.values[i].value);
-//     // }
-// }
+    while (true) {
+        int i = 0;
+        for (; i < lfset_ptr->size; ++i) {
+            bool ret = lfset_ptr->ds_set->remove(i);
+            if (ret == true) {
+                LOG_GLOBAL_INFO("remove: %d", i);
+                lfset_ptr->mark[i] = true;
+            }
+        }
+
+        i = 0;
+        for (; i < lfset_ptr->size; ++i) {
+            if (lfset_ptr->mark[i] == false) {
+                break;
+            }
+        }
+        if (i == lfset_ptr->size) {
+            break;
+        }
+    }
+    delete lfset_ptr;
+    return nullptr;
+}
+
+TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
+{
+    int max_thread = 256;
+    int max_range = 2000;
+
+    // 用多个线程插入和删除进行测试
+    os::ThreadPool thread_pool;
+    os::ThreadPoolConfig config = thread_pool.get_threadpool_config();
+    config.threads_num = max_thread;
+    config.max_waiting_task = 4096;
+    thread_pool.set_threadpool_config(config);
+    while (true) {
+        os::ThreadPoolRunningInfo info = thread_pool.get_running_info();
+        if (info.idle_threads_num + info.running_threads_num == static_cast<int>(config.threads_num)) {
+            break;
+        }
+    }
+
+    bool *mark = new bool[max_range];
+    for (int i = 0; i < max_range; ++i) {
+        mark[i] = false;
+    }
+
+    bool wait_start = true;
+    int start_pos = 0;
+    DSHashSet ds_set;
+    for (int i = 0; i < max_range / max_thread + 1; ++i) {
+        // 生产者
+        Producer *task_ptr = new Producer;
+        task_ptr->ds_set = &ds_set;
+        task_ptr->wait_start = &wait_start;
+        task_ptr->low = start_pos;
+        task_ptr->high = (start_pos + max_range / max_thread > max_range ? max_range : max_range / max_thread);
+        start_pos += max_range / max_thread;
+
+        os::Task task;
+        task.work_func = producer;
+        task.thread_arg = task_ptr;
+        thread_pool.add_task(task);
+
+        /// 消费者
+        Consumer *con_ptr = new Consumer;
+        con_ptr->ds_set = &ds_set;
+        con_ptr->wait_start = &wait_start;
+        con_ptr->mark = mark;
+        con_ptr->size = max_range;
+        
+
+        task.work_func = consumers;
+        task.thread_arg = con_ptr;
+        thread_pool.add_task(task);
+    }
+
+    wait_start = false;
+
+    while (thread_pool.get_running_info().running_threads_num > 0) {
+        os::Time::sleep(50);
+    }
+
+    // for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
+    //     fprintf(stderr, "vaild: %s, val: %d\n", node.values[i].valid ? "true":"false", node.values[i].value);
+    // }
+}
 
 }
 }

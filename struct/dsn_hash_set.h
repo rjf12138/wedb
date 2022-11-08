@@ -93,7 +93,7 @@ public:
     bool insert(const int &key);
     bool remove(const int &key);
     bool exist(const int &key);
-    int size(void);
+    uint32_t size(void);
 
     void print(void);
 
@@ -104,6 +104,8 @@ private:
     void init_buckets(int pos);
 
 private:
+    uint32_t elem_size_;        //插入元素数量
+
     unsigned curr_size_;
     FSet **buckets_ptr_;        // 当前的hash数据集
 

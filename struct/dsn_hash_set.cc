@@ -168,12 +168,12 @@ FSet::FSet(void)
     :freeze_(false) 
 {
     index_ = ++i;
-    LOG_GLOBAL_INFO("Create %d", index_);
+    //LOG_GLOBAL_INFO("Create %d", index_);
 }
 
 FSet::~FSet(void) 
 {
-    LOG_GLOBAL_INFO("Destroy %d", index_);
+    //LOG_GLOBAL_INFO("Destroy %d", index_);
 }
 
 void 
@@ -227,6 +227,7 @@ DSHashSet::~DSHashSet(void)
             }
         }
         delete []buckets_ptr_;
+        //LOG_GLOBAL_INFO("Destory: %d %lx", curr_size_, buckets_ptr_);
         buckets_ptr_ = nullptr;
     }
 
@@ -236,7 +237,8 @@ DSHashSet::~DSHashSet(void)
                 delete pred_buckets_ptr_[i];
             }
         }
-        delete [] buckets_ptr_;
+        delete [] pred_buckets_ptr_;
+        //LOG_GLOBAL_INFO("Destory: %d %lx", curr_size_, pred_buckets_ptr_);
         pred_buckets_ptr_ = nullptr;
     }
 }
@@ -280,6 +282,11 @@ DSHashSet::exist(const int &key)
 
     return false;
 }
+
+// uint32_t 
+// DSHashSet::size(void)
+// {
+// }
 
 int 
 DSHashSet::when_resize_hash_table(void) 
@@ -363,6 +370,7 @@ DSHashSet::resize(bool grow)
             }
         }
         delete[] pred_buckets_ptr_;
+        //LOG_GLOBAL_INFO("Destory: %d %lx", curr_size_, pred_buckets_ptr_);
         pred_buckets_ptr_ = buckets_ptr_;
         buckets_ptr_ = nullptr;
     }
@@ -374,6 +382,7 @@ DSHashSet::resize(bool grow)
         curr_size_ = FSET_BUCKETS_INIT_SIZE;
     }
     FSet **tmp_buckets_ptr_ = new FSet*[curr_size_];
+    //LOG_GLOBAL_INFO("Create: %d %lx", curr_size_, pred_buckets_ptr_);
     for (int i = 0; i < curr_size_; ++i) {
         tmp_buckets_ptr_[i] = nullptr;
     }
