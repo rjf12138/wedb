@@ -10,7 +10,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/home/ruanjian/workspace/project_v/wedb/output/debug/bin/wedb",
-            "args": [],
+            "args": ["--gtest_filter=DSHashSetTest.DSHashSetMutilThreadTest"],
             "stopAtEntry": false,
             "cwd": "/home/ruanjian/workspace/project_v/wedb/output/debug/bin",
             "environment": [],

@@ -124,7 +124,8 @@ void* consumers(void* arg)
 
 TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
 {
-    int max_thread = 256;
+    int num_gap = 30;
+    int max_thread = 60;
     int max_range = 2000;
 
     // 用多个线程插入和删除进行测试
@@ -148,20 +149,23 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
     bool wait_start = true;
     int start_pos = 0;
     DSHashSet ds_set;
-    for (int i = 0; i < max_range / max_thread + 1; ++i) {
+    for (int i = 0; i < num_gap + 1; ++i) {
         // 生产者
         Producer *task_ptr = new Producer;
         task_ptr->ds_set = &ds_set;
         task_ptr->wait_start = &wait_start;
         task_ptr->low = start_pos;
-        task_ptr->high = (start_pos + max_range / max_thread > max_range ? max_range : max_range / max_thread);
-        start_pos += max_range / max_thread;
+        task_ptr->high = (start_pos + max_range / num_gap > max_range ? max_range : start_pos + max_range / num_gap);
+        start_pos += max_range / num_gap;
 
         os::Task task;
         task.work_func = producer;
         task.thread_arg = task_ptr;
         thread_pool.add_task(task);
+    }
 
+    for (int i = 0; i < max_thread - num_gap - 3; ++i)
+    {
         /// 消费者
         Consumer *con_ptr = new Consumer;
         con_ptr->ds_set = &ds_set;
@@ -169,7 +173,7 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         con_ptr->mark = mark;
         con_ptr->size = max_range;
         
-
+        os::Task task;
         task.work_func = consumers;
         task.thread_arg = con_ptr;
         thread_pool.add_task(task);
@@ -177,10 +181,14 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
 
     wait_start = false;
 
-    while (thread_pool.get_running_info().running_threads_num > 0) {
-        os::Time::sleep(50);
+    // char ch = '\0';
+    // while ((ch = getchar()) != 'q') {
+    //     os::Time::sleep(50);
+    // }
+    while (thread_pool.get_running_info().waiting_tasks > 0) {
+        os::Time::sleep(1000);
     }
-
+    delete [] mark;
     // for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
     //     fprintf(stderr, "vaild: %s, val: %d\n", node.values[i].valid ? "true":"false", node.values[i].value);
     // }
