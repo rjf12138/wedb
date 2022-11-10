@@ -75,8 +75,9 @@ void* producer(void* arg)
     }
 
     Producer *lfset_ptr = static_cast<Producer*>(arg);
+    LOG_GLOBAL_INFO("Start: %d, End: %d", lfset_ptr->low, lfset_ptr->high);
     while (*(lfset_ptr->wait_start) == true) {
-        ;
+        os::Time::sleep(50);;
     }
 
     for (int i = lfset_ptr->low; i < lfset_ptr->high; ++i) {
@@ -95,7 +96,7 @@ void* consumers(void* arg)
 
     Consumer *lfset_ptr = static_cast<Consumer*>(arg);
     while (*(lfset_ptr->wait_start) == true) {
-        ;
+        os::Time::sleep(50);
     }
 
     while (true) {
@@ -126,7 +127,7 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
 {
     int num_gap = 30;
     int max_thread = 60;
-    int max_range = 2000;
+    int max_range = 2500000;
 
     // 用多个线程插入和删除进行测试
     os::ThreadPool thread_pool;
@@ -137,8 +138,10 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
     while (true) {
         os::ThreadPoolRunningInfo info = thread_pool.get_running_info();
         if (info.idle_threads_num + info.running_threads_num == static_cast<int>(config.threads_num)) {
+            LOG_GLOBAL_INFO("thread_num: %d, Idle: %d, Running: %d", config.threads_num, info.idle_threads_num, info.running_threads_num);
             break;
         }
+        os::Time::sleep(1000);
     }
 
     bool *mark = new bool[max_range];
@@ -162,6 +165,8 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         task.work_func = producer;
         task.thread_arg = task_ptr;
         thread_pool.add_task(task);
+
+        LOG_GLOBAL_INFO("low: %d, high: %d", task_ptr->low, task_ptr->high);
     }
 
     for (int i = 0; i < max_thread - num_gap - 3; ++i)
@@ -177,15 +182,31 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         task.work_func = consumers;
         task.thread_arg = con_ptr;
         thread_pool.add_task(task);
+        LOG_GLOBAL_INFO("Consumer: %d", i);
     }
 
+    char ch = '\0';
+    while ((ch = getchar()) != 'q') {
+        os::Time::sleep(50);
+    }
     wait_start = false;
 
-    // char ch = '\0';
-    // while ((ch = getchar()) != 'q') {
-    //     os::Time::sleep(50);
-    // }
-    while (thread_pool.get_running_info().waiting_tasks > 0) {
+    bool flag = false;
+    while (true) {
+        int t_num = 0, f_num = 0;
+        int i = 0;
+        for (; i < max_range; ++i) {
+            if (mark[i] == false) {
+                ++f_num;
+            } else {
+                ++t_num;
+            }
+        }
+        LOG_GLOBAL_INFO("true: %d, false: %d", t_num, f_num);
+        if (f_num == 0) {
+            LOG_GLOBAL_INFO("Mutil thread test exit!!!");
+            break;
+        }
         os::Time::sleep(1000);
     }
     delete [] mark;
