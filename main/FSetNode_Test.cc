@@ -75,13 +75,13 @@ void* producer(void* arg)
     }
 
     Producer *lfset_ptr = static_cast<Producer*>(arg);
-    LOG_GLOBAL_INFO("Start: %d, End: %d", lfset_ptr->low, lfset_ptr->high);
+    //LOG_GLOBAL_INFO("Start: %d, End: %d", lfset_ptr->low, lfset_ptr->high);
     while (*(lfset_ptr->wait_start) == true) {
         os::Time::sleep(50);;
     }
 
     for (int i = lfset_ptr->low; i < lfset_ptr->high; ++i) {
-        LOG_GLOBAL_INFO("insert: %d", i);
+        //LOG_GLOBAL_INFO("insert: %d", i);
         lfset_ptr->ds_set->insert(i);
     }
     delete lfset_ptr;
@@ -104,7 +104,7 @@ void* consumers(void* arg)
         for (; i < lfset_ptr->size; ++i) {
             bool ret = lfset_ptr->ds_set->remove(i);
             if (ret == true) {
-                LOG_GLOBAL_INFO("remove: %d", i);
+                //LOG_GLOBAL_INFO("remove: %d", i);
                 lfset_ptr->mark[i] = true;
             }
         }
@@ -166,7 +166,7 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         task.thread_arg = task_ptr;
         thread_pool.add_task(task);
 
-        LOG_GLOBAL_INFO("low: %d, high: %d", task_ptr->low, task_ptr->high);
+        //LOG_GLOBAL_INFO("low: %d, high: %d", task_ptr->low, task_ptr->high);
     }
 
     for (int i = 0; i < max_thread - num_gap - 3; ++i)
@@ -182,10 +182,11 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         task.work_func = consumers;
         task.thread_arg = con_ptr;
         thread_pool.add_task(task);
-        LOG_GLOBAL_INFO("Consumer: %d", i);
+        //LOG_GLOBAL_INFO("Consumer: %d", i);
     }
 
     char ch = '\0';
+    std::cout << "Input 'q' to continue..." << std::endl;
     while ((ch = getchar()) != 'q') {
         os::Time::sleep(50);
     }

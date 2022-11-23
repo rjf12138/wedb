@@ -19,6 +19,7 @@
         "variant": "cpp",
         "unordered_map": "cpp",
         "vector": "cpp",
-        "memory": "cpp"
+        "memory": "cpp",
+        "deque": "cpp"
     }
 }
