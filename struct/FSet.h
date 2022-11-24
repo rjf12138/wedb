@@ -69,13 +69,19 @@ public:
 };
 
 // hash集，在 FSetNode 的基础上增加了冻结操作
+enum EApplyErr {
+    EApplyErr_Ok,
+    EApplyErr_Failed,
+    EApplyErr_Freeze,
+};
+
 class FSet {
 public:
     FSet(void);
     ~FSet(void);
 
     void freeze(void);
-    bool invoke(const FSetOp &op);
+    EApplyErr invoke(const FSetOp &op);
     bool exist(const FSetOp &op);
 
 public:
@@ -87,17 +93,14 @@ public:
 class FSetArray {
 public:
     FSetArray(uint32_t size = FSET_BUCKETS_INIT_SIZE);
-    FSetArray(FSetArray &farr);
     ~FSetArray(void);
 
     FSetNode *node(int index);
     FSet* set(int index);
-    void freeze(void);
+    bool freeze(void);
     uint32_t size(void) {return size_;}
-
-private:
-    int copy(FSetArray &farr);
-
+    bool resize(uint32_t size);
+    
 private:
     FSet *buckets_ptr_;
     uint32_t size_;

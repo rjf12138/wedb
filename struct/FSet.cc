@@ -187,19 +187,19 @@ FSet::freeze(void)
     }
 }
 
-bool 
+EApplyErr 
 FSet::invoke(const FSetOp &op) 
 {
-    while (freeze_ == false) {
-        bool ret = false;
-        if (op.type == EFSetOp_Insert && node_.exist(op.val) == false) {
-            ret = node_.insert(op.val);
-        } else if (op.type == EFSetOp_Remove && node_.exist(op.val) == true) {
-            ret = node_.remove(op.val);
-        }
-        return ret;
+    if (freeze_ == true) {
+        return EApplyErr_Freeze;
     }
-    return false;
+    bool ret = false;
+    if (op.type == EFSetOp_Insert && node_.exist(op.val) == false) {
+        ret = node_.insert(op.val);
+    } else if (op.type == EFSetOp_Remove && node_.exist(op.val) == true) {
+        ret = node_.remove(op.val);
+    }
+    return ret == false ? EApplyErr_Failed : EApplyErr_Ok;
 }
 
 bool 
@@ -211,15 +211,10 @@ FSet::exist(const FSetOp &op)
 /////////////////////////////////////////////////////////////////////////////////////////
 
 FSetArray::FSetArray(uint32_t size)
-:freeze_(false)
+:freeze_(false),
+buckets_ptr_(nullptr)
 {
-    size_ = (size <= FSET_BUCKETS_INIT_SIZE ? FSET_BUCKETS_INIT_SIZE : size);
-    buckets_ptr_ = new FSet[size_];
-}
-
-FSetArray::FSetArray(FSetArray &farr)
-{
-    copy(farr);
+    resize(size);
 }
 
 FSetArray::~FSetArray(void)
@@ -233,6 +228,7 @@ FSetNode *
 FSetArray::node(int index)
 {
     if (freeze_ == true || index >= size_) {
+        LOG_GLOBAL_INFO("%x node nullptr", this);
         return nullptr;
     }
     return &(buckets_ptr_[index].node_);
@@ -242,20 +238,36 @@ FSet*
 FSetArray::set(int index)
 {
     if (freeze_ == true || index >= size_) {
+        LOG_GLOBAL_INFO("%x set nullptr", this);
         return nullptr;
     }
     return &(buckets_ptr_[index]);
 }
 
-void 
+bool 
 FSetArray::freeze(void)
 {
-    for (uint32_t i = 0; i < size_; ++i) {
-        buckets_ptr_[i].freeze();
+    while (freeze_ == false) {
+        if (os::Atomic<bool>::compare_and_swap(&freeze_, false, true) == true) {
+            return true;
+        }
     }
+    return false;
 }
 
-int FSetArray::copy(FSetArray &farr)
+bool
+FSetArray::resize(uint32_t size)
 {
-    farr.freeze();
+    if (freeze() == false) {
+        return false;
+    }
+    LOG_GLOBAL_INFO("%x size: %u", this, size);
+    if (buckets_ptr_ != nullptr) {
+        delete []buckets_ptr_;
+    }
+
+    size_ = (size <= FSET_BUCKETS_INIT_SIZE ? FSET_BUCKETS_INIT_SIZE : size);
+    buckets_ptr_ = new FSet[size_];
+    freeze_ = false;
+    return true;
 }

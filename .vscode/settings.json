@@ -20,6 +20,14 @@
         "unordered_map": "cpp",
         "vector": "cpp",
         "memory": "cpp",
-        "deque": "cpp"
+        "deque": "cpp",
+        "random": "cpp",
+        "streambuf": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "algorithm": "cpp",
+        "memory_resource": "cpp",
+        "istream": "cpp",
+        "sstream": "cpp"
     }
 }

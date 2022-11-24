@@ -6,6 +6,7 @@ DSHashSet::DSHashSet(void)
 pred_buckets_(nullptr)
 {
     curr_buckets_ = new FSetArray();
+    pred_buckets_ = new FSetArray();
 }
 
 DSHashSet::~DSHashSet(void) 
@@ -88,7 +89,7 @@ DSHashSet::when_resize_hash_table(void)
     }
 
     // 当数据的容量小于桶的数量时进行缩减
-    if (elem_size_ < curr_buckets_->size()) {
+    if (elem_size_ < curr_buckets_->size() && elem_size_ > FSET_BUCKETS_INIT_SIZE) {
         return resize(false);
     }
 
@@ -104,11 +105,21 @@ DSHashSet::apply(FSetOp op)
         init_buckets(pos);
     }
 
-    ret = curr_buckets_->set(pos)->invoke(op);
-    if (ret == true) {
-        when_resize_hash_table();
+    while (true) {
+        if (curr_buckets_->set(pos) == nullptr) {
+            continue;
+        }
+        ret = curr_buckets_->set(pos)->invoke(op);
+        if (ret == EApplyErr_Freeze) {
+            continue;
+        } else if (ret == EApplyErr_Ok) {
+            when_resize_hash_table();
+            return true;
+        } else {
+            return false;
+        }
     }
-    return ret;
+    return false;
 }
 
 uint32_t 
@@ -118,23 +129,22 @@ DSHashSet::resize(bool grow)
         init_buckets(i);
     }
 
-    delete pred_buckets_;
-    pred_buckets_ = nullptr;
-
     uint32_t new_buckets_size = curr_buckets_->size();
     if (curr_buckets_->size() >= FSET_BUCKETS_INIT_SIZE) { 
         new_buckets_size = (grow == true ? new_buckets_size * 2 : new_buckets_size / 2);
     } else {
         new_buckets_size = FSET_BUCKETS_INIT_SIZE;
     }
-    FSetArray *new_array = new FSetArray(new_buckets_size);
-
-    // 封装buckets到一个类中，不然总会有竞争， 每次将数据复制到新的类中，然后再替换
-    int ret = os::Atomic<FSetArray*>::compare_and_swap(&pred_buckets_, nullptr, curr_buckets_);
-    int ret = os::Atomic<FSetArray*>::compare_and_swap(&curr_buckets_, curr_buckets_, new_array);
+    
+    if (pred_buckets_->resize(new_buckets_size) == true) {
+        auto tmp = pred_buckets_;
+        pred_buckets_ = curr_buckets_;
+        curr_buckets_ = tmp;
+        return new_buckets_size;
+    }
     //LOG_GLOBAL_INFO("Create: %d %lx, grow: %s, cas_ret: %d", curr_bucket_size_, pred_buckets_ptr_, grow == true ? "true":"false", ret);
 
-    return new_buckets_size;
+    return 0;
 }
 
 void 
@@ -142,11 +152,13 @@ DSHashSet::init_buckets(int pos)
 {
     FSet *bucket_ptr = curr_buckets_->set(pos);
     if (bucket_ptr == nullptr) {
-        FSet *new_bucket_ptr = new FSet();
         if (pred_buckets_ != nullptr){
             for (int i = 0; i < pred_buckets_->size(); ++i) {
+                if (pred_buckets_->set(i) == nullptr) {
+                    return;
+                }
                 pred_buckets_->set(i)->freeze();
-                pred_buckets_->node(i)->split(new_bucket_ptr->node_, pos, curr_buckets_->size());
+                pred_buckets_->node(i)->split(bucket_ptr->node_, pos, curr_buckets_->size());
             }
         }
     }
