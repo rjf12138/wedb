@@ -2,7 +2,8 @@
 
 
 DSHashSet::DSHashSet(void)
-:curr_buckets_(nullptr),
+:elem_size_(0),
+curr_buckets_(nullptr),
 pred_buckets_(nullptr)
 {
     curr_buckets_ = new FSetArray();
@@ -81,6 +82,9 @@ DSHashSet::when_resize_hash_table(void)
 {
     unsigned total_size = 0;
     for (int i = 0; i < curr_buckets_->size(); ++i) {
+        if (pred_buckets_->set(i) == nullptr) {
+            return 0;
+        }
         total_size += curr_buckets_->node(i)->size();
         // 当某个桶中元素超过四分之三时进行扩大
         if (curr_buckets_->node(i)->size() > FSETNODE_MAX_SIZE * 0.8) {

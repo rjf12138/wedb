@@ -81,8 +81,8 @@ void* producer(void* arg)
     }
 
     for (int i = lfset_ptr->low; i < lfset_ptr->high; ++i) {
-        //LOG_GLOBAL_INFO("insert: %d", i);
         lfset_ptr->ds_set->insert(i);
+        LOG_GLOBAL_INFO("size: %d", lfset_ptr->ds_set->size());
     }
     delete lfset_ptr;
     return nullptr;
@@ -169,6 +169,17 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         //LOG_GLOBAL_INFO("low: %d, high: %d", task_ptr->low, task_ptr->high);
     }
 
+    char ch = '\0';
+    std::cout << "Input 'q' to continue..." << std::endl;
+    while ((ch = getchar()) != 'q') {
+        os::Time::sleep(50);
+    }
+    wait_start = false;
+
+    while (ds_set.size() < max_range) {
+        os::Time::sleep(100);
+    }
+
     for (int i = 0; i < max_thread - num_gap - 3; ++i)
     {
         /// 消费者
@@ -184,13 +195,6 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         thread_pool.add_task(task);
         //LOG_GLOBAL_INFO("Consumer: %d", i);
     }
-
-    char ch = '\0';
-    std::cout << "Input 'q' to continue..." << std::endl;
-    while ((ch = getchar()) != 'q') {
-        os::Time::sleep(50);
-    }
-    wait_start = false;
 
     bool flag = false;
     while (true) {

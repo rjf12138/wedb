@@ -228,7 +228,7 @@ FSetNode *
 FSetArray::node(int index)
 {
     if (freeze_ == true || index >= size_) {
-        LOG_GLOBAL_INFO("%x node nullptr", this);
+        //LOG_GLOBAL_INFO("%x node nullptr", this);
         return nullptr;
     }
     return &(buckets_ptr_[index].node_);
@@ -238,7 +238,7 @@ FSet*
 FSetArray::set(int index)
 {
     if (freeze_ == true || index >= size_) {
-        LOG_GLOBAL_INFO("%x set nullptr", this);
+        //LOG_GLOBAL_INFO("%x set nullptr", this);
         return nullptr;
     }
     return &(buckets_ptr_[index]);
