@@ -23,8 +23,9 @@ protected:
 TEST_F(DSHashSetTest, DSHashSetBasicTest)
 {
     DSHashSet ds_set;
-    int start_value = -99999;
-    int max_value = 99999;
+    int value = 999999;
+    int start_value = -1 * value;
+    int max_value = value;
 
     // 测试在完全为空初始状态进行判断是否存在和删除操作
     for (int i = start_value; i < max_value; ++i) {
@@ -180,6 +181,7 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         os::Time::sleep(100);
     }
 
+    // 删除有问题
     for (int i = 0; i < max_thread - num_gap - 3; ++i)
     {
         /// 消费者

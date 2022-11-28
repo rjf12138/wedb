@@ -80,12 +80,7 @@ DSHashSet::size(void)
 int 
 DSHashSet::when_resize_hash_table(void) 
 {
-    unsigned total_size = 0;
     for (int i = 0; i < curr_buckets_->size(); ++i) {
-        if (pred_buckets_->set(i) == nullptr) {
-            return 0;
-        }
-        total_size += curr_buckets_->node(i)->size();
         // 当某个桶中元素超过四分之三时进行扩大
         if (curr_buckets_->node(i)->size() > FSETNODE_MAX_SIZE * 0.8) {
             return resize(true);
@@ -103,9 +98,9 @@ DSHashSet::when_resize_hash_table(void)
 bool 
 DSHashSet::apply(FSetOp op) 
 {
-    bool ret = false;
+    EApplyErr ret = EApplyErr_Failed;
     int pos = hash(op.val.value, curr_buckets_->size());
-    if (curr_buckets_->size() == 0) {
+    if (curr_buckets_->set(pos) != nullptr && curr_buckets_->node(pos)->size() == 0) {
         init_buckets(pos);
     }
 
@@ -133,6 +128,10 @@ DSHashSet::resize(bool grow)
         init_buckets(i);
     }
 
+    if (curr_buckets_->freeze() == false) {
+        return 0;
+    }
+
     uint32_t new_buckets_size = curr_buckets_->size();
     if (curr_buckets_->size() >= FSET_BUCKETS_INIT_SIZE) { 
         new_buckets_size = (grow == true ? new_buckets_size * 2 : new_buckets_size / 2);
@@ -155,44 +154,32 @@ void
 DSHashSet::init_buckets(int pos) 
 {
     FSet *bucket_ptr = curr_buckets_->set(pos);
-    if (bucket_ptr == nullptr) {
-        if (pred_buckets_ != nullptr){
-            for (int i = 0; i < pred_buckets_->size(); ++i) {
-                if (pred_buckets_->set(i) == nullptr) {
-                    return;
-                }
-                pred_buckets_->set(i)->freeze();
-                pred_buckets_->node(i)->split(bucket_ptr->node_, pos, curr_buckets_->size());
-            }
-        }
+    for (int i = 0; i < pred_buckets_->size(); ++i) {
+        // if (pred_buckets_->set(i) == nullptr) {
+        //     return;
+        // }
+        //pred_buckets_->set(i)->freeze();
+        pred_buckets_->node(i)->split(bucket_ptr->node_, pos, curr_buckets_->size());
     }
 }
 
 
-// void 
-// DSHashSet::print(void)
-// {
-//     int total = 0;
-//     fprintf(stdout, "================== Bucket Start =================\n");
-//     for (unsigned i = 0; i < curr_bucket_size_; ++i) {
-//         if (buckets_ptr_[i] == nullptr) {
-//             continue;
-//         } else {
-//             fprintf(stdout, "curr_bucket[%d]: %d\n", i, buckets_ptr_[i]->node_.size());
-//             buckets_ptr_[i]->node_.print();
-//             total += buckets_ptr_[i]->node_.size();
-//         }
-//     }
-//     fprintf(stdout, "\n");
-//     for (unsigned i = 0; i < pred_bucket_size_; ++i) {
-//         if (pred_buckets_ptr_[i] == nullptr) {
-//             continue;
-//         } else {
-//             fprintf(stdout, "pred_bucket[%d]: %d\n", i, pred_buckets_ptr_[i]->node_.size());
-//             pred_buckets_ptr_[i]->node_.print();
-//             total += pred_buckets_ptr_[i]->node_.size();
-//         }
-//     }
-//     fprintf(stdout, "Total size: %d\n", total);
-//     fprintf(stdout, "================== Bucket End =================\n");
-// }
+void 
+DSHashSet::print(void)
+{
+    int total = 0;
+    fprintf(stdout, "================== Bucket Start =================\n");
+    for (unsigned i = 0; i < curr_buckets_->size(); ++i) {
+        fprintf(stdout, "curr_bucket[%d]: %d\n", i, curr_buckets_->node(i)->size());
+        curr_buckets_->node(i)->print();
+        total += curr_buckets_->node(i)->size();
+    }
+    fprintf(stdout, "\n");
+    for (unsigned i = 0; i < pred_buckets_->size(); ++i) {
+        fprintf(stdout, "pred_bucket[%d]: %d\n", i, pred_buckets_->node(i)->size());
+        pred_buckets_->node(i)->print();
+        total += pred_buckets_->node(i)->size();
+    }
+    fprintf(stdout, "Total size: %d\n", total);
+    fprintf(stdout, "================== Bucket End =================\n");
+}

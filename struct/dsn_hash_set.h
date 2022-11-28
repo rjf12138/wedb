@@ -16,7 +16,7 @@ public:
     bool exist(const int &key);
     uint32_t size(void);
 
-    // void print(void);
+    void print(void);
 
 private:
     int when_resize_hash_table(void);

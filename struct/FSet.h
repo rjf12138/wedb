@@ -98,6 +98,7 @@ public:
     FSetNode *node(int index);
     FSet* set(int index);
     bool freeze(void);
+    bool is_freeze(void) {return freeze_;}
     uint32_t size(void) {return size_;}
     bool resize(uint32_t size);
     
