@@ -163,51 +163,6 @@ FSetNode::print(void)
     fprintf(stdout, "\n");
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-static int i = 0;
-FSet::FSet(void) 
-    :freeze_(false) 
-{
-    index_ = ++i;
-    //LOG_GLOBAL_INFO("Create %d", index_);
-}
-
-FSet::~FSet(void) 
-{
-    //LOG_GLOBAL_INFO("Destroy %d", index_);
-}
-
-void 
-FSet::freeze(void) 
-{
-    while (freeze_ == false) {
-        if (os::Atomic<bool>::compare_and_swap(&freeze_, false, true) == true) {
-            break;
-        }
-    }
-}
-
-EApplyErr 
-FSet::invoke(const FSetOp &op) 
-{
-    if (freeze_ == true) {
-        return EApplyErr_Freeze;
-    }
-    bool ret = false;
-    if (op.type == EFSetOp_Insert && node_.exist(op.val) == false) {
-        ret = node_.insert(op.val);
-    } else if (op.type == EFSetOp_Remove && node_.exist(op.val) == true) {
-        ret = node_.remove(op.val);
-    }
-    return ret == false ? EApplyErr_Failed : EApplyErr_Ok;
-}
-
-bool 
-FSet::exist(const FSetOp &op) 
-{
-    return node_.exist(op.val);
-}
-
 /////////////////////////////////////////////////////////////////////////////////////////
 
 FSetArray::FSetArray(uint32_t size)
@@ -224,24 +179,38 @@ FSetArray::~FSetArray(void)
     }
 }
 
-FSetNode *
-FSetArray::node(int index)
+// 存在竞争，如果在exist是调整了大小，insert插入将崩溃
+EApplyErr 
+FSetArray::invoke(const FSetOp &op, FSetArray &pred_set_array)
 {
-    if (freeze_ == true || index >= size_) {
-        LOG_GLOBAL_INFO("%x node nullptr", this);
-        return nullptr;
+    if (freeze_ == true) {
+        return EApplyErr_Freeze;
     }
-    return &(buckets_ptr_[index].node_);
+
+    int index = hash(op.val.value, bucket_size());
+    if (this->node_elem_size(index) == 0) {
+        this->init_buckets(index, pred_set_array);
+    }
+
+    bool ret = false;
+    if (op.type == EFSetOp_Insert && buckets_ptr_[index].exist(op.val) == false) {
+        ret = buckets_ptr_[index].insert(op.val);
+    } else if (op.type == EFSetOp_Remove && buckets_ptr_[index].exist(op.val) == true) {
+        ret = buckets_ptr_[index].remove(op.val);
+    }
+    return ret == false ? EApplyErr_Failed : EApplyErr_Ok;
 }
 
-FSet* 
-FSetArray::set(int index)
+bool 
+FSetArray::exist(int index, const FSetOp &op)
 {
-    if (freeze_ == true || index >= size_) {
-        LOG_GLOBAL_INFO("%x set nullptr", this);
-        return nullptr;
-    }
-    return &(buckets_ptr_[index]);
+    return buckets_ptr_[index].exist(op.val);
+}
+
+uint32_t 
+FSetArray::node_elem_size(int index)
+{
+    return buckets_ptr_[index].size();
 }
 
 bool 
@@ -263,8 +232,44 @@ FSetArray::resize(uint32_t size)
         delete []buckets_ptr_;
     }
 
-    size_ = (size <= FSET_BUCKETS_INIT_SIZE ? FSET_BUCKETS_INIT_SIZE : size);
-    buckets_ptr_ = new FSet[size_];
+    bucket_size_ = (size <= FSET_BUCKETS_INIT_SIZE ? FSET_BUCKETS_INIT_SIZE : size);
+    buckets_ptr_ = new FSetNode[bucket_size_];
     freeze_ = false;
     return true;
+}
+
+EResizeStatus 
+FSetArray::when_resize_hash_table(uint32_t elem_size)
+{
+    for (int i = 0; i < bucket_size(); ++i) {
+        // 当某个桶中元素超过四分之三时进行扩大
+        if (buckets_ptr_[i].size() > FSETNODE_MAX_SIZE * 0.8) {
+            return EResizeStatus_Grow;
+        }
+    }
+
+    // 当数据的容量小于桶的数量时进行缩减
+    if (elem_size < bucket_size() && elem_size > FSET_BUCKETS_INIT_SIZE) {
+        return EResizeStatus_Reduce;
+    }
+
+    return EResizeStatus_Remain;
+}
+
+void 
+FSetArray::init_buckets(int pos, FSetArray &pred_set_array)
+{
+    for (int i = 0; i < pred_set_array.bucket_size(); ++i) {
+        pred_set_array.buckets_ptr_[i].split(this->buckets_ptr_[pos], pos, this->bucket_size());
+    }
+}
+
+void 
+FSetArray::print(void)
+{
+    for (unsigned i = 0; i < this->bucket_size(); ++i) {
+        fprintf(stdout, "curr_bucket[%d]: %d\n", i, buckets_ptr_[i].size());
+        buckets_ptr_[i].print();
+    }
+    fprintf(stdout, "\n");
 }

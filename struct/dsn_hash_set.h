@@ -9,20 +9,20 @@ public:
     DSHashSet(void);
     ~DSHashSet(void);
 
-    // 返回错误分为三种，1. 成功，2. 插入/删除失败 3. 当前桶被冻结无法插入，要等一下才能插入
-    // 如果错误是3,需要循环等待，返回值不要用bool，用enum表示那三种
+    // 插入元素
     bool insert(const int &key);
+    // 移除元素
     bool remove(const int &key);
+    // 元素是否存在
     bool exist(const int &key);
+    // 元素数量
     uint32_t size(void);
 
     void print(void);
 
 private:
-    int when_resize_hash_table(void);
     bool apply(FSetOp op);
     uint32_t resize(bool grow);
-    void init_buckets(int pos);
 
 private:
     uint32_t elem_size_;        //插入元素数量

@@ -70,24 +70,15 @@ public:
 
 // hash集，在 FSetNode 的基础上增加了冻结操作
 enum EApplyErr {
-    EApplyErr_Ok,
-    EApplyErr_Failed,
-    EApplyErr_Freeze,
+    EApplyErr_Ok,    // 成功调用
+    EApplyErr_Failed,// 调用失败
+    EApplyErr_Freeze,// 当前集合被冻结
 };
 
-class FSet {
-public:
-    FSet(void);
-    ~FSet(void);
-
-    void freeze(void);
-    EApplyErr invoke(const FSetOp &op);
-    bool exist(const FSetOp &op);
-
-public:
-    FSetNode node_;
-    bool freeze_; // false：表示没有冻结，true：表示冻结
-    int index_;
+enum EResizeStatus {
+    EResizeStatus_Remain,   // 保持不变
+    EResizeStatus_Reduce,   // 缩减
+    EResizeStatus_Grow,     // 增长
 };
 
 class FSetArray {
@@ -95,16 +86,33 @@ public:
     FSetArray(uint32_t size = FSET_BUCKETS_INIT_SIZE);
     ~FSetArray(void);
 
-    FSetNode *node(int index);
-    FSet* set(int index);
+    // 调用插入和删除
+    EApplyErr invoke(const FSetOp &op, FSetArray &pred_set_array);
+    // index的桶中OP表示的值是否存在
+    bool exist(int index, const FSetOp &op);
+    // 数组中一个节点的元素数量
+    uint32_t node_elem_size(int index);
+
+    // 冻结当前集合数组
     bool freeze(void);
+    // 当前是否冻结
     bool is_freeze(void) {return freeze_;}
-    uint32_t size(void) {return size_;}
+
+    // 桶的的大小
+    uint32_t bucket_size(void) {return bucket_size_;}
+    // 重置桶的大小
     bool resize(uint32_t size);
+    // 检查是否要重置桶的大小
+    EResizeStatus when_resize_hash_table(uint32_t ele_size);
     
+    // 初始化当前数组中的一个桶
+    void init_buckets(int pos, FSetArray &pred_set_array);
+
+    // 打印数组中元素分布
+    void print(void);
 private:
-    FSet *buckets_ptr_;
-    uint32_t size_;
+    FSetNode *buckets_ptr_;
+    uint32_t bucket_size_;  // 桶的数量
     bool freeze_; // false：表示没有冻结，true：表示冻结
 };
 #endif

@@ -37,7 +37,7 @@ TEST_F(DSHashSetTest, DSHashSetBasicTest)
         //LOG_GLOBAL_DEBUG("Insert i = %d", i);
         ASSERT_EQ(ds_set.insert(i), true);
     }
-    //ds_set.print();
+    ds_set.print();
     for (int i = start_value; i < max_value; ++i) {
         //LOG_GLOBAL_DEBUG("Exist_1 i = %d", i);
         ASSERT_EQ(ds_set.exist(i), true);
@@ -47,7 +47,7 @@ TEST_F(DSHashSetTest, DSHashSetBasicTest)
         //LOG_GLOBAL_DEBUG("Remove i = %d", i);
         ASSERT_EQ(ds_set.remove(i), true);
     }
-    //ds_set.print();
+    ds_set.print();
     for (int i = start_value; i < max_value; ++i) {
         //LOG_GLOBAL_DEBUG("Exist_2 i = %d", i);
         ASSERT_EQ(ds_set.exist(i), false);

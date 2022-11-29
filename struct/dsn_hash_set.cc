@@ -56,14 +56,14 @@ DSHashSet::exist(const int &key)
 {
     FSetOp op;
     op.val.value  = key;
-    int pos = hash(key, curr_buckets_->size());
-    if (curr_buckets_->set(pos)->exist(op) == true) {
+    int pos = hash(key, curr_buckets_->bucket_size());
+    if (curr_buckets_->exist(pos, op) == true) {
         return true;
     }
 
-    if (pred_buckets_->size() > 0) {
-        pos = hash(key, pred_buckets_->size());
-        if (pred_buckets_->set(pos)->exist(op) == true) {
+    if (pred_buckets_->bucket_size() > 0) {
+        pos = hash(key, pred_buckets_->bucket_size());
+        if (pred_buckets_->exist(pos, op) == true) {
             return true;
         }
     }
@@ -77,42 +77,20 @@ DSHashSet::size(void)
     return elem_size_;
 }
 
-int 
-DSHashSet::when_resize_hash_table(void) 
-{
-    for (int i = 0; i < curr_buckets_->size(); ++i) {
-        // 当某个桶中元素超过四分之三时进行扩大
-        if (curr_buckets_->node(i)->size() > FSETNODE_MAX_SIZE * 0.8) {
-            return resize(true);
-        }
-    }
-
-    // 当数据的容量小于桶的数量时进行缩减
-    if (elem_size_ < curr_buckets_->size() && elem_size_ > FSET_BUCKETS_INIT_SIZE) {
-        return resize(false);
-    }
-
-    return 0;
-}
-
 bool 
 DSHashSet::apply(FSetOp op) 
 {
-    EApplyErr ret = EApplyErr_Failed;
-    int pos = hash(op.val.value, curr_buckets_->size());
-    if (curr_buckets_->set(pos) != nullptr && curr_buckets_->node(pos)->size() == 0) {
-        init_buckets(pos);
-    }
-
     while (true) {
-        if (curr_buckets_->set(pos) == nullptr) {
-            continue;
-        }
-        ret = curr_buckets_->set(pos)->invoke(op);
+        EApplyErr ret = curr_buckets_->invoke(op, *pred_buckets_);
         if (ret == EApplyErr_Freeze) {
             continue;
         } else if (ret == EApplyErr_Ok) {
-            when_resize_hash_table();
+            EResizeStatus is_resize = curr_buckets_->when_resize_hash_table(size());
+            if (is_resize == EResizeStatus_Grow) {
+                resize(true);
+            } else if (is_resize == EResizeStatus_Reduce) {
+                resize(false);
+            }
             return true;
         } else {
             return false;
@@ -124,16 +102,16 @@ DSHashSet::apply(FSetOp op)
 uint32_t 
 DSHashSet::resize(bool grow) 
 {
-    for (int i = 0; i < curr_buckets_->size(); ++i) {
-        init_buckets(i);
-    }
-
     if (curr_buckets_->freeze() == false) {
         return 0;
     }
 
-    uint32_t new_buckets_size = curr_buckets_->size();
-    if (curr_buckets_->size() >= FSET_BUCKETS_INIT_SIZE) { 
+    for (int i = 0; i < curr_buckets_->bucket_size(); ++i) {
+        curr_buckets_->init_buckets(i, *pred_buckets_);
+    }
+
+    uint32_t new_buckets_size = curr_buckets_->bucket_size();
+    if (curr_buckets_->bucket_size() >= FSET_BUCKETS_INIT_SIZE) { 
         new_buckets_size = (grow == true ? new_buckets_size * 2 : new_buckets_size / 2);
     } else {
         new_buckets_size = FSET_BUCKETS_INIT_SIZE;
@@ -151,35 +129,12 @@ DSHashSet::resize(bool grow)
 }
 
 void 
-DSHashSet::init_buckets(int pos) 
-{
-    FSet *bucket_ptr = curr_buckets_->set(pos);
-    for (int i = 0; i < pred_buckets_->size(); ++i) {
-        // if (pred_buckets_->set(i) == nullptr) {
-        //     return;
-        // }
-        //pred_buckets_->set(i)->freeze();
-        pred_buckets_->node(i)->split(bucket_ptr->node_, pos, curr_buckets_->size());
-    }
-}
-
-
-void 
 DSHashSet::print(void)
 {
     int total = 0;
     fprintf(stdout, "================== Bucket Start =================\n");
-    for (unsigned i = 0; i < curr_buckets_->size(); ++i) {
-        fprintf(stdout, "curr_bucket[%d]: %d\n", i, curr_buckets_->node(i)->size());
-        curr_buckets_->node(i)->print();
-        total += curr_buckets_->node(i)->size();
-    }
-    fprintf(stdout, "\n");
-    for (unsigned i = 0; i < pred_buckets_->size(); ++i) {
-        fprintf(stdout, "pred_bucket[%d]: %d\n", i, pred_buckets_->node(i)->size());
-        pred_buckets_->node(i)->print();
-        total += pred_buckets_->node(i)->size();
-    }
-    fprintf(stdout, "Total size: %d\n", total);
+    curr_buckets_->print();
+    pred_buckets_->print();
+    fprintf(stdout, "Total size: %d\n", size());
     fprintf(stdout, "================== Bucket End =================\n");
 }
