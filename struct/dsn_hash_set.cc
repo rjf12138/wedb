@@ -13,8 +13,11 @@ pred_buckets_(nullptr)
 DSHashSet::~DSHashSet(void) 
 {
     if (curr_buckets_ != nullptr) {
-        delete curr_buckets_;
+        // 先将curr_buckets_置为nullptr，防止其他线程再次进入修改curr_buckets_
+        // 然后再释放curr_buckets_的内存（现在tmp中），tmp将等待剩余线程处理完事务后退出程序
+        auto tmp = curr_buckets_;
         curr_buckets_ = nullptr;
+        delete tmp;
     }
 
     if (pred_buckets_ != nullptr) {
@@ -81,6 +84,9 @@ bool
 DSHashSet::apply(FSetOp op) 
 {
     while (true) {
+        if (curr_buckets_ == nullptr) {
+            continue;
+        }
         EApplyErr ret = curr_buckets_->invoke(op, *pred_buckets_);
         if (ret == EApplyErr_Freeze) {
             continue;
