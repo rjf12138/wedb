@@ -99,6 +99,9 @@ FSetNode::size(void) const
 int 
 FSetNode::split(FSetNode &node, int key, int des) 
 {
+    if (size() == 0) {
+        return 0;
+    }
     int move_size = 0;
     for (int j = 0; j < FSETNODE_ARRAY_AMOUNT; ++j) {
         if (values_ptr[j] == nullptr) {
@@ -258,7 +261,7 @@ FSetArray::when_resize_hash_table(uint32_t elem_size)
 {
     for (int i = 0; i < bucket_size(); ++i) {
         // 当某个桶中元素超过四分之三时进行扩大
-        if (buckets_ptr_[i].size() > FSETNODE_MAX_SIZE * 0.8) {
+        if (buckets_ptr_[i].size() > FSETNODE_MAX_SIZE * 0.7) {
             return EResizeStatus_Grow;
         }
     }

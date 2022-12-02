@@ -29,11 +29,6 @@ private:
 
     FSetArray *curr_buckets_;
     FSetArray *pred_buckets_;
-    // unsigned curr_bucket_size_;
-    // FSet **buckets_ptr_;        // 当前的hash数据集
-
-    // unsigned pred_bucket_size_;
-    // FSet **pred_buckets_ptr_;   // 前置的hash数据集
 
     unsigned max_data_size_;
 };

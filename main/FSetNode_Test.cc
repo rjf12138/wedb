@@ -216,6 +216,15 @@ TEST_F(DSHashSetTest, DSHashSetMutilThreadTest)
         }
         os::Time::sleep(1000);
     }
+
+    while (true) {
+        os::ThreadPoolRunningInfo info = thread_pool.get_running_info();
+        if (info.running_threads_num == 0) {
+            LOG_GLOBAL_INFO("thread_num: %d, Idle: %d, Running: %d", config.threads_num, info.idle_threads_num, info.running_threads_num);
+            break;
+        }
+        os::Time::sleep(1000);
+    }
     delete [] mark;
     // for (int i = 0; i < FSETNODE_VALUE_MAX_SIZE; ++i) {
     //     fprintf(stderr, "vaild: %s, val: %d\n", node.values[i].valid ? "true":"false", node.values[i].value);
