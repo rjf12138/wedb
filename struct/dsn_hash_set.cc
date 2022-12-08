@@ -84,19 +84,14 @@ bool
 DSHashSet::apply(FSetOp op) 
 {
     while (true) {
-        if (curr_buckets_ == nullptr) {
-            continue;
-        }
         EApplyErr ret = curr_buckets_->invoke(op, *pred_buckets_);
         if (ret == EApplyErr_Freeze) {
             continue;
         } else if (ret == EApplyErr_Ok) {
             EResizeStatus is_resize = curr_buckets_->when_resize_hash_table(size());
-            if (is_resize == EResizeStatus_Grow) {
-                resize(true);
-            } else if (is_resize == EResizeStatus_Reduce) {
-                resize(false);
-            }
+            if (is_resize != EResizeStatus_Remain) {
+                resize(is_resize == EResizeStatus_Grow ? true : false);
+            } 
             return true;
         } else {
             return false;
@@ -108,12 +103,12 @@ DSHashSet::apply(FSetOp op)
 uint32_t 
 DSHashSet::resize(bool grow) 
 {
-    if (curr_buckets_->freeze() == false) {
-        return 0;
-    }
-
     for (int i = 0; i < curr_buckets_->bucket_size(); ++i) {
         curr_buckets_->init_buckets(i, *pred_buckets_);
+    }
+    
+    if (curr_buckets_->freeze() == false) {
+        return 0;
     }
 
     uint32_t new_buckets_size = curr_buckets_->bucket_size();

@@ -5,6 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/struct",
+                "${workspaceFolder}/extern_inc",
+                "${workspaceFolder}/extern_inc",
                 "${workspaceFolder}/extern_inc"
             ],
             "defines": [],

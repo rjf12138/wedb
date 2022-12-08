@@ -1,0 +1,13 @@
+1. lsm 和 b+ 树都进行实现
+2. 缓存系统
+
+任务1：
+目标：实现lsm数据结构
+资料：
+1. https://zhuanlan.zhihu.com/p/98751989
+
+实现步骤：
+1. 实现skiplist --- done
+2. 实现memory buffer indexing(Bloom filter)
+    a. 实现 Bloom filter --- done
+

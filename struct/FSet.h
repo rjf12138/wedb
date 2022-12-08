@@ -114,6 +114,5 @@ private:
     FSetNode *buckets_ptr_;
     uint32_t bucket_size_;  // 桶的数量
     bool freeze_; // false：表示没有冻结，true：表示冻结
-    uint32_t run_thread_count_;
 };
 #endif

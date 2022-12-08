@@ -18,11 +18,13 @@ string(REPLACE ";" " " CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 
 # 设置生成文件输出路径
 set(EXECUTABLE_OUTPUT_PATH, ./output/debug/bin)
-add_executable(wedb ./main/FSetNode_Test.cc)
+add_executable(wedb ./main/utils_test.cc)
 
 target_include_directories(wedb PUBLIC ./inc/)
 target_include_directories(wedb PRIVATE ./extern_inc/)
 target_include_directories(wedb PRIVATE struct)
+target_include_directories(wedb PRIVATE utils)
+target_include_directories(wedb PRIVATE lsm)
 
 target_link_directories(wedb PRIVATE ./lib/debug/)
 
@@ -32,5 +34,8 @@ target_link_libraries(wedb PRIVATE pthread)
 target_link_libraries(wedb PRIVATE basicd)
 target_link_libraries(wedb PRIVATE algorithmd)
 include(src/CMakeLists.txt)
+include(cache/CMakeLists.txt)
+include(lsm/CMakeLists.txt)
 include(struct/CMakeLists.txt)
+include(utils/CMakeLists.txt)
 

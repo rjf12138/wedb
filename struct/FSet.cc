@@ -170,8 +170,7 @@ FSetNode::print(void)
 
 FSetArray::FSetArray(uint32_t size)
 :freeze_(false),
-buckets_ptr_(nullptr),
-run_thread_count_(0)
+buckets_ptr_(nullptr)
 {
     resize(size);
 }
@@ -179,10 +178,6 @@ run_thread_count_(0)
 FSetArray::~FSetArray(void)
 {
     freeze(); // 释放空间前先冻结数组，等待剩余线程处理完任务在释放空间
-    while (run_thread_count_ > 0) {
-        ;
-    }
-
     if (buckets_ptr_ != nullptr) {
         delete []buckets_ptr_;
         buckets_ptr_ = nullptr;
@@ -193,15 +188,13 @@ FSetArray::~FSetArray(void)
 EApplyErr 
 FSetArray::invoke(const FSetOp &op, FSetArray &pred_set_array)
 {
-    if (freeze_ == true) {
-        return EApplyErr_Freeze;
-    }
-    // 统计还在处理任务的流程
-    os::Atomic<uint32_t>::fetch_and_add(&run_thread_count_, 1);
-
     int index = hash(op.val.value, bucket_size());
     if (this->node_elem_size(index) == 0) {
         this->init_buckets(index, pred_set_array);
+    }
+
+    if (freeze_ == true) {
+        return EApplyErr_Freeze;
     }
 
     bool ret = false;
@@ -210,7 +203,6 @@ FSetArray::invoke(const FSetOp &op, FSetArray &pred_set_array)
     } else if (op.type == EFSetOp_Remove && buckets_ptr_[index].exist(op.val) == true) {
         ret = buckets_ptr_[index].remove(op.val);
     }
-    os::Atomic<uint32_t>::fetch_and_sub(&run_thread_count_, 1);
 
     return ret == false ? EApplyErr_Failed : EApplyErr_Ok;
 }
@@ -241,10 +233,6 @@ FSetArray::freeze(void)
 bool
 FSetArray::resize(uint32_t size)
 {
-    while (run_thread_count_ > 0) { // 当还有线程在操作数据集合时，不重置数组大小
-        ;
-    }
-
     LOG_GLOBAL_INFO("%x size: %u", this, size);
     if (buckets_ptr_ != nullptr) {
         delete []buckets_ptr_;
