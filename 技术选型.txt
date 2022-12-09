@@ -10,4 +10,9 @@
 1. 实现skiplist --- done
 2. 实现memory buffer indexing(Bloom filter)
     a. 实现 Bloom filter --- done
+3. 将内存数据持久化到文件中。
+    待解决的问题：
+    a. 键值对是以什么样的格式组织起来并持久化到文件中的
+    b. 如何从持久化的文件中查询数据
+    c. 如何删除我不需要的数据
 
