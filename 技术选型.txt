@@ -12,7 +12,34 @@
     a. 实现 Bloom filter --- done
 3. 将内存数据持久化到文件中。
     待解决的问题：
-    a. 键值对是以什么样的格式组织起来并持久化到文件中的
-    b. 如何从持久化的文件中查询数据
-    c. 如何删除我不需要的数据
+    a. 内存数据持久化到文件中的过程
+        1. 当内存数据表到达一定阈值会将当前内存数据表冻结并创建新的内存表。
+        2. 这个冻结的数据表会在后台进行一次合并，合并时会以指定的文件格式保存到文件中。
+    b. 键值对是以什么样的格式组织起来并持久化到文件中的（SStable）
+        1. sstable 按照固定大小进行快划分，默认每块4Kib
+        2. 每个块中除了数据，还有两个辅助字段，压缩类型和CRC校验码
+            格式：|   Data   | Compression Type | CRC |
+        3. 依据功能每sstable分为：
+            a. data block: 用来存储key value数据对；
+            b. filter block: 用来存储一些过滤器相关的数据（布隆过滤器），但是若用户不指定leveldb使用过滤器，leveldb在该block中不会存储任何内容；
+            c. meta Index block: 用来存储filter block的索引信息（索引信息指在该sstable文件中的偏移量以及数据长度）；
+            d. index block：index block中用来存储每个data block的索引信息；
+            e. footer: 用来存储meta index block及index block的索引信息；
+            注意： 1-4类型的区块，每个区块都会有自己的压缩信息以及CRC校验码信息
+        
+        sstable 每部分说明：
+        (a). data block:
+            1. data block 中存储数据的是leveldb中的键值对，其中数据部分（不包括校验码）按如下划分
+                | Entry 1 |<----|
+                | Entry 2 |<----|---|
+                    ...         |   |
+                | Entry 3 |     |   |
+                | Restart Point 1 | |
+                | Restart Point 2 |-|
+            第一部分用来存储keyvalue数据。对于sstable中所有的keyvalue对都是严格按顺序存储的，
+            每间隔若干个keyvalue对，将为该条记录重新存储一个完整的key。重复该过程（默认间隔值为16）
+            每个重新存储完整key的点称之为 Restart Point。（目前不打算使用这种优化直接存储键值对）
+        // TODO：剩余的数据部分
+    c. 如何从持久化的文件中查询数据
+    d. 如何删除我不需要的数据
 
