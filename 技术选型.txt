@@ -39,7 +39,36 @@
             第一部分用来存储keyvalue数据。对于sstable中所有的keyvalue对都是严格按顺序存储的，
             每间隔若干个keyvalue对，将为该条记录重新存储一个完整的key。重复该过程（默认间隔值为16）
             每个重新存储完整key的点称之为 Restart Point。（目前不打算使用这种优化直接存储键值对）
-        // TODO：剩余的数据部分
+        (b). filter block
+            | Filter Data 1 |   
+                    ...         过滤数据
+            | Filter Data n |
+            | Filter 1 offset |
+                    ...         表示第i个filter data 在整个 filter block 中的起始偏移
+            | Filter n offset |
+            | Filter offset's offset | 表示filter block的索引数据在filter block中的偏移量
+            | Base Lg(1 byte) | 默认值为11,表示每2KB数据，创建一个新的过滤器来存放过滤数据
+            一个sstable只有一个filter block，其内存储了所有block的filter数据.
+        (c). meta index block
+            1. 用来存储filter block 在整个sstable中的索引信息
+            2. 只记录一条记录：key: "filte."与过滤器名字组成的常量字符串。
+            3. 改记录的value: 1. filter block在sstable中的偏移量，2. 数据长度。
+        (d). index block
+            1. 用来记录data block的相关索引信息
+                index block 包含若干条记录
+                (1). data block i 中最大的key值；
+                (2). 该data block起始地址在sstable中的偏移量
+                (3). 该data block的大小
+
+            其中，data block i最大的key值还是index block中该条记录的key值。
+            如此设计的目的是，依次比较index block中记录信息的key值即可实现快
+            速定位目标数据在哪个data block中。
+        
+        (e). footer 
+            footer大小固定，为48字节，用来存储meta index block与index block在sstable中的索引信息，
+            另外尾部还会存储一个magic word，内容为："http://code.google.com/p/leveldb/"字符串sha1哈希的前8个字节。
+
+            
     c. 如何从持久化的文件中查询数据
     d. 如何删除我不需要的数据
 
