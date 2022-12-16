@@ -19,10 +19,9 @@
 	],
 	"GenerateFileType": "exe",
 	"HeaderFileDirectoryListing": [
-		"struct",
-		"utils",
 		"lsm"
-	],"LibraryDirectoryListing": {
+	],
+	"LibraryDirectoryListing": {
 		"debug": [
 			
 		],
@@ -47,9 +46,6 @@
 	"ProgramRunArgs": "--gtest_filter=DSHashSetTest.DSHashSetMutilThreadTest",
 	"SourceFileDirectoryListing": [
 		"src",
-		"cache",
-		"lsm",
-		"struct",
-		"utils"
+		"lsm"
 	],"UUID": "461b229f-552d-4582-88cd-d561f3ac1678"
 }
