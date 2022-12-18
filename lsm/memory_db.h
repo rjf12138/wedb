@@ -31,7 +31,7 @@ public:
     void from_record(basic::ByteBuffer buffer);
 
 public:
-    basic::ByteBuffer data;
+    basic::ByteBuffer key;
     uint32_t seq;
     DBOperationType type;
 };
@@ -42,17 +42,22 @@ public:
     ~MemoryDB(void);
 
     // 放入一条记录
-    int put(const basic::ByteBuffer &key, const basic::ByteBuffer &value);
+    bool put(const basic::ByteBuffer &key, const basic::ByteBuffer &value);
     // 移除一条记录
-    int remove(const basic::ByteBuffer &key);
-    // 检查记录是否存在
-    bool find(const basic::ByteBuffer &key);
-    // 获取记录的值
-    basic::ByteBuffer* get(const basic::ByteBuffer &key);
+    bool remove(const basic::ByteBuffer &key);
+
+    // TODO 目前实现起来有点麻烦，等sstable实现好后在来做
+    // // 检查记录是否存在
+    // bool find(const basic::ByteBuffer &key);
+    // // 获取记录的值
+    // basic::ByteBuffer* get(const basic::ByteBuffer &key);
+
+    // 设置一个之前的的seqence
+    void set_last_seq(uint32_t seq) {seq_ = seq;}
 
 private:
     ds::SkipList<RecordBlock, basic::ByteBuffer> mem_db_;
-    uint32_t seq;
+    uint32_t seq_;
 };
 
 #endif

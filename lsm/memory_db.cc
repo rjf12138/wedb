@@ -17,16 +17,16 @@ RecordBlock::~RecordBlock(void)
 int 
 RecordBlock::compare(const RecordBlock &rhs)
 {
-    if (rhs.data.data_size() > this->data.data_size()) {
+    if (rhs.key.data_size() > this->key.data_size()) {
         return -1;
-    } else if (rhs.data.data_size() < this->data.data_size()) {
+    } else if (rhs.key.data_size() < this->key.data_size()) {
         return 1;
     } else {
-        auto &rhs_data = rhs.data;
-        for (int i = 0; i < this->data.data_size(); ++i) {
-            if (rhs_data[i] > this->data[i]) {
+        auto &rhs_data = rhs.key;
+        for (int i = 0; i < this->key.data_size(); ++i) {
+            if (rhs_data[i] > this->key[i]) {
                 return -1;
-            } else if (rhs_data[i] < this->data[i]) {
+            } else if (rhs_data[i] < this->key[i]) {
                 return 1;
             }
         }
@@ -45,7 +45,7 @@ basic::ByteBuffer
 RecordBlock::to_record(void)
 {
     // |  key   | seq (7bytes) | type(1byte) |
-    basic::ByteBuffer buffer(data);
+    basic::ByteBuffer buffer(key);
     int64_t tmp_data = 0x00;
     tmp_data = seq << 8 | type;
     buffer.write_int64(tmp_data);
@@ -61,7 +61,7 @@ RecordBlock::from_record(basic::ByteBuffer buffer)
     }
 
     auto start_iter = buffer.begin();
-    buffer.get_data(this->data, start_iter, buffer.data_size() - 8);
+    buffer.get_data(this->key, start_iter, buffer.data_size() - 8);
 
     int64_t tmp_data = 0x00;
     buffer.read_int64(tmp_data);
@@ -71,3 +71,39 @@ RecordBlock::from_record(basic::ByteBuffer buffer)
 
     return ;
 }
+
+///////////////////////// Memory database /////////////////////////////////
+MemoryDB::MemoryDB(void)
+:seq_(0)
+{}
+
+MemoryDB::~MemoryDB(void)
+{}
+
+bool 
+MemoryDB::put(const basic::ByteBuffer &key, const basic::ByteBuffer &value)
+{
+    RecordBlock block;
+    block.key = key;
+    block.seq = ++seq_;
+    block.type = DBOperationType_Add;
+
+    return mem_db_.put(block, value);
+}
+
+
+bool 
+MemoryDB::remove(const basic::ByteBuffer &key)
+{
+    RecordBlock block;
+    block.key = key;
+    block.seq = ++seq_;
+    block.type = DBOperationType_Remove;
+
+    return mem_db_.put(block, basic::ByteBuffer());
+}
+
+// // 检查记录是否存在
+// bool find(const basic::ByteBuffer &key);
+// // 获取记录的值
+// basic::ByteBuffer* get(const basic::ByteBuffer &key);
