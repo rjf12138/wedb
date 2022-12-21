@@ -15,7 +15,7 @@ RecordBlock::~RecordBlock(void)
     若用户定义的key相同，则序列号大的internalKey（RecordBlock::seq）值就小；
 */
 int 
-RecordBlock::compare(const RecordBlock &rhs)
+RecordBlock::compare(const RecordBlock &rhs) const
 {
     if (rhs.key.data_size() > this->key.data_size()) {
         return -1;
@@ -72,6 +72,30 @@ RecordBlock::from_record(basic::ByteBuffer buffer)
     return ;
 }
 
+bool 
+RecordBlock::operator<(const RecordBlock &rblk) const
+{
+    return compare(rblk) == -1;
+}
+
+bool 
+RecordBlock::operator>(const RecordBlock &rblk) const
+{
+    return compare(rblk) == 1;
+}
+
+bool 
+RecordBlock::operator==(const RecordBlock &rblk) const
+{
+    return compare(rblk) == 0;
+}
+
+bool 
+RecordBlock::operator!=(const RecordBlock &rblk) const
+{
+    return compare(rblk) != 0;
+}
+
 ///////////////////////// Memory database /////////////////////////////////
 MemoryDB::MemoryDB(void)
 :seq_(0)
@@ -88,7 +112,7 @@ MemoryDB::put(const basic::ByteBuffer &key, const basic::ByteBuffer &value)
     block.seq = ++seq_;
     block.type = DBOperationType_Add;
 
-    return mem_db_.put(block, value);
+    return mem_db_.put(block, basic::ByteBuffer()) != mem_db_.end();
 }
 
 
@@ -100,10 +124,16 @@ MemoryDB::remove(const basic::ByteBuffer &key)
     block.seq = ++seq_;
     block.type = DBOperationType_Remove;
 
-    return mem_db_.put(block, basic::ByteBuffer());
+    return mem_db_.put(block, basic::ByteBuffer()) != mem_db_.end();
 }
 
 // // 检查记录是否存在
-// bool find(const basic::ByteBuffer &key);
+// bool 
+// MemoryDB::find(const basic::ByteBuffer &key)
+// {
+//     return mem_db_.get(key) == mem_db_.end();
+// }
+
 // // 获取记录的值
-// basic::ByteBuffer* get(const basic::ByteBuffer &key);
+// basic::ByteBuffer* 
+// MemoryDB::get(const basic::ByteBuffer &key);

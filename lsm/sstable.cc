@@ -31,6 +31,20 @@ SStable::create_data_block(void)
     basic::ByteBuffer data_block;
     basic::ByteBuffer filter_block;
 
+    // 创建 data_block
+    for (auto iter = mem_db_->mem_db_.begin(); iter != mem_db_->mem_db_.end(); ++iter) {
+        // 写入key
+        basic::ByteBuffer key_buff = iter.key().to_record();
+        data_block.write_int32(key_buff.data_size());
+
+        auto beg_iter = key_buff.begin();
+        key_buff.get_data(data_block, beg_iter, key_buff.data_size());
+
+        // 写入value
+        beg_iter = iter.value().begin();
+        iter.value().get_data(data_block, beg_iter, iter.value().data_size());
+    }
+
     
 }
 

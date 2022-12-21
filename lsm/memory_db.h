@@ -24,11 +24,17 @@ public:
     ~RecordBlock(void);
 
     // 当前类大于传入参数返回：1, 相等返回：0， 小于返回：-1
-    int compare(const RecordBlock &lrv);
+    int compare(const RecordBlock &lrv) const;
     // 将所有属性转成一条写入记录
     basic::ByteBuffer to_record(void);
     // 将一条记录转成RecordBlock
     void from_record(basic::ByteBuffer buffer);
+
+public:
+    bool operator<(const RecordBlock &rblk) const;
+    bool operator>(const RecordBlock &rblk) const;
+    bool operator==(const RecordBlock &rblk) const;
+    bool operator!=(const RecordBlock &rblk) const;
 
 public:
     basic::ByteBuffer key;
@@ -46,7 +52,6 @@ public:
     // 移除一条记录
     bool remove(const basic::ByteBuffer &key);
 
-    // TODO 目前实现起来有点麻烦，等sstable实现好后在来做
     // // 检查记录是否存在
     // bool find(const basic::ByteBuffer &key);
     // // 获取记录的值
@@ -55,7 +60,7 @@ public:
     // 设置一个之前的的seqence
     void set_last_seq(uint32_t seq) {seq_ = seq;}
 
-private:
+public:
     ds::SkipList<RecordBlock, basic::ByteBuffer> mem_db_;
     uint32_t seq_;
 };

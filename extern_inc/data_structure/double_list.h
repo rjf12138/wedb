@@ -22,17 +22,9 @@ struct DoublyListNode {
 
 template <typename V>
 class DoublyList {
-	class Iterator;
 public:
 	DoublyList(void);
 	virtual ~DoublyList(void);
-
-    int32_t push_back(const V& value);
-	int32_t insert_front(const Iterator& iter, const V& value);
-	int32_t insert_back(const Iterator& iter, const V& value);
-	int32_t erase(const Iterator& iter);
-	int32_t clear(void);
-	uint32_t size(void) const;
 
 	class Iterator {
 		friend class DoublyList;
@@ -62,6 +54,13 @@ public:
 
 	Iterator begin(void);
 	Iterator end(void);
+
+	int32_t push_back(const V& value);
+	int32_t insert_front(const Iterator& iter, const V& value);
+	int32_t insert_back(const Iterator& iter, const V& value);
+	int32_t erase(const Iterator& iter);
+	int32_t clear(void);
+	uint32_t size(void) const;
 
 private:
 	DoublyListNode<V>* get_node(const Iterator& iter);
