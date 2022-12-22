@@ -15,12 +15,14 @@ public:
     void clear(void) {bitset_ = 0x00;}
     // 检查值是否存在
     bool exist(basic::ByteBuffer &buffer);
+    // 返回布隆过滤器结果
+    int result(void) {return bitset_;}
     
     // 测试打印
     void print(basic::ByteBuffer &buffer);
     
 private:
-    uint32_t bitset_;
+    int bitset_;
 };
 
 #endif
