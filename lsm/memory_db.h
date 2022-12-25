@@ -24,7 +24,7 @@ public:
     ~RecordBlock(void);
 
     // 当前类大于传入参数返回：1, 相等返回：0， 小于返回：-1
-    int compare(const RecordBlock &lrv) const;
+    int compare(const RecordBlock &lrv, bool is_only_key = false) const;
     // 将所有属性转成一条写入记录
     basic::ByteBuffer to_record(void);
     // 将一条记录转成RecordBlock

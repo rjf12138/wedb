@@ -15,7 +15,7 @@ RecordBlock::~RecordBlock(void)
     若用户定义的key相同，则序列号大的internalKey（RecordBlock::seq）值就小；
 */
 int 
-RecordBlock::compare(const RecordBlock &rhs) const
+RecordBlock::compare(const RecordBlock &rhs, bool is_only_key) const
 {
     if (rhs.key.data_size() > this->key.data_size()) {
         return -1;
@@ -31,10 +31,12 @@ RecordBlock::compare(const RecordBlock &rhs) const
             }
         }
 
-        if (rhs.seq > this->seq) {
-            return -1;
-        } else if (rhs.seq < this->seq) {
-            return 1;
+        if (is_only_key == true) {
+            if (rhs.seq > this->seq) {
+                return -1;
+            } else if (rhs.seq < this->seq) {
+                return 1;
+            }
         }
     }
 
