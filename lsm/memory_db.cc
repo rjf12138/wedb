@@ -46,7 +46,7 @@ RecordBlock::compare(const RecordBlock &rhs, bool is_only_key) const
 basic::ByteBuffer 
 RecordBlock::to_record(void)
 {
-    // |  key   | seq (7bytes) | type(1byte) |
+    // |  key  | type(1byte) |
     basic::ByteBuffer buffer(key);
     int64_t tmp_data = 0x00;
     tmp_data = seq << 8 | type;

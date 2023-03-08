@@ -15,10 +15,10 @@ public:
     int read_from_file(MemoryDB *mem_db);
     
 private:
-    int create_data_block(void);
-    int create_filter_block(void);
-    int create_meta_index_block(void);
-    int create_footer(void);
+    // 将内存数据同步到文件中
+    int minor_compaction(void);
+    // 将多个sstable进行合并
+    int major_compaction(void);
 
 private:
     MemoryDB *mem_db_;

@@ -59,6 +59,10 @@ public:
 
     // 设置一个之前的的seqence
     void set_last_seq(uint32_t seq) {seq_ = seq;}
+    
+private:
+    basic::ByteBuffer to_stream(void) {}
+    void from_stream(void) {}
 
 public:
     ds::SkipList<RecordBlock, basic::ByteBuffer> mem_db_;

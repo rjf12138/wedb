@@ -1,36 +1,23 @@
-FREEZABLE SETS：元素集合（桶）
-1. 插入/删除元素
-2. 冻结集合
-3. 查看某个元素是否存在
+LSM 树 （不允许key重复）
+1. 
+a. 对外操作:
+	增加元素：加一个增加标记，然后往数据库里写就行了。
+	删除元素：加一个删除标记，然后往数据库里写就行了。
+	修改元素：加一个修改标记，然后往数据库里写就行了。
+	查找操作：先在内存里查找，然后再从磁盘里一层层的往下找。
 
-A LOCK-FREE, DYNAMIC-SIZED HASHSET ALGORITHM: 由 FREEZABLE SETS 组成 HASHSET
-无锁的动态增长的哈希集合算法：
-操作
-	1. 插入/删除元素(insert/remove)
-	2. 元素是否存在(contain)
-	3. 动态改变大小 (resize)[double, half]
+b. 内部操作
+	多层级合并
 
-判断是否改变哈希表的大小：
-	一种典型的做法：
-	设定某个阈值，当完成{INS，REM}操作时
-	对选中的桶随机采样，达到阈值就改变大小。
+结构：总共有7层，第一层在内存中，剩余六层在磁盘中。
+level 0: 在内存中，使用跳跃表（SkipList）来实现，当数据达到上限是便会写到磁盘中形成一个 sstable。
+level 1: 最多有四个 sstable, 达到四个时将较为旧的三个sstable与下一层进行合并，如果下一层是空的那么就将这三个自行合并放到下一层
+level 2: 有一个 sstable, 当大小超过 10^2 MB 便会和下一层进行合并， 如果下一层是空的就将这层放到下一层 (下面每一层都将遵循达到10^i MB 就进行合并)
+	....
+level 6: 这是最后一层，不会再和下一层进行合并
 
-初始化桶INITBUCKET(i)：i 是指在 Curr_node 中的索引 
-	有两个 (FREEZABLE SETS数组) 组成的节点(Prev_node(可能为NIL), Curr_node)
-	目的：通过合并或拆分 Prev_node 对应的桶, 来初始化 Curr_node i-th 个桶。
-	流程：
-	1、如果 Prev_node 存在，通过判断 Prev_node 的大小来决定是对 Curr_node 的大小翻倍还是将 Curr_node 减少为原来的二分之一。 
-	2、在拷贝 Prev_node 的桶前先冻结要拷贝的桶。
-	3、如果 Curr_node 的大小是 Prev_node 的两倍，将 Prev_node 中对应位置( i mod Prev_node.size) 的桶一半元素合并到 Curr_node 中。
-	4、如果 Curr_node 的大小是 Prev_node 的一半，将 Prev_node 中对应位置( i 和 i + Curr_node.size) 的桶合并到 Curr_node 中。
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
-动态改变哈希表的大小RESIZE(bool grow) 
-1、参数 grow 决定是增大还是减小哈希表。
-2、线程在改变哈希表大小前首先要，将所有元素全部保存到 Curr_node 里。
-   完成移动后将 Prev_node 置为空（当前是被冻结的）释放 Prev_node 所占用的空间。
-3、然后分配一个新的节点 New_curr_node。当前的 Curr_node 则变为 New_Prev_node。
-   新分配的 New_curr_node 节点不用初始化，插入或是删除操作时再进行。
-	
-	
-A WAIT-FREE ALGORITHM
-	
+SkipList 序列化和反序列化：
+最小单元键值对的格式: | mark(2个字节) | key_length(1/2个字节) | key | value_length (2/4个字节) | value | （标记位可以确认关键字最大长度或是其他一些作用）
+sstable 格式: | 每个布隆过滤器索引位置 | 布隆过滤器1 | 布隆过滤器1内元素开始位置 | ... | 布隆过滤器n | 布隆过滤器n内元素开始位置 | 最小单元键值对组 |

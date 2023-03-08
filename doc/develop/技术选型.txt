@@ -71,7 +71,9 @@
             footer大小固定，为48字节，用来存储meta index block与index block在sstable中的索引信息，
             另外尾部还会存储一个magic word，内容为："http://code.google.com/p/leveldb/"字符串sha1哈希的前8个字节。
 
-            
+    c. 合并多个0层的 sstable 生成一个1层的sstable，1层 sstable 每个数据都是唯一的
+        1. 
+
     c. 如何从持久化的文件中查询数据
     d. 如何删除我不需要的数据
 

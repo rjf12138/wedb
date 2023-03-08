@@ -24,7 +24,7 @@ SStable::read_from_file(MemoryDB *mem_db)
 }
 
 int 
-SStable::create_data_block(void)
+SStable::minor_compaction(void)
 {
     if (mem_db_ == nullptr) {
         return -1;
@@ -104,19 +104,7 @@ SStable::create_data_block(void)
 }
 
 int 
-SStable::create_filter_block(void)
+SStable::major_compaction(void)
 {
-
-}
-
-int 
-SStable::create_meta_index_block(void)
-{
-
-}
-
-int 
-SStable::create_footer(void)
-{
-
+    
 }
