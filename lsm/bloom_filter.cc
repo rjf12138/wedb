@@ -13,7 +13,7 @@ BloomFilter::~BloomFilter(void)
 }
 
 void 
-BloomFilter::push(basic::ByteBuffer &buffer)
+BloomFilter::push(const basic::ByteBuffer &buffer)
 {
     ssize_t size = buffer.data_size();
     char *key = new char[size];
@@ -33,7 +33,7 @@ BloomFilter::push(basic::ByteBuffer &buffer)
 }
 
 bool 
-BloomFilter::exist(basic::ByteBuffer &buffer)
+BloomFilter::exist(const basic::ByteBuffer &buffer)
 {
     ssize_t size = buffer.data_size();
     char *key = new char[size];
@@ -55,7 +55,7 @@ BloomFilter::exist(basic::ByteBuffer &buffer)
 }
 
 void 
-BloomFilter::print(basic::ByteBuffer &buffer)
+BloomFilter::print(const basic::ByteBuffer &buffer)
 {
     ssize_t size = buffer.data_size();
     char *key = new char[size];
