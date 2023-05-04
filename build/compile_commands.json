@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/home/ruanjian/workspace/project_v/wedb/build",
+  "command": "/usr/bin/g++  -I/home/ruanjian/workspace/project_v/wedb/./inc -I/home/ruanjian/workspace/project_v/wedb/./extern_inc -I/home/ruanjian/workspace/project_v/wedb/lsm -I/home/ruanjian/workspace/project_v/wedb/src -g -DCHECK_PTHREAD_RETURN_VALUE -D_FILE_OFFSET_BITS=64 -march=native -rdynamic -g -o CMakeFiles/wedb.dir/main/utils_test.cc.o -c /home/ruanjian/workspace/project_v/wedb/main/utils_test.cc",
+  "file": "/home/ruanjian/workspace/project_v/wedb/main/utils_test.cc"
+},
+{
+  "directory": "/home/ruanjian/workspace/project_v/wedb/build",
+  "command": "/usr/bin/g++  -I/home/ruanjian/workspace/project_v/wedb/./inc -I/home/ruanjian/workspace/project_v/wedb/./extern_inc -I/home/ruanjian/workspace/project_v/wedb/lsm -I/home/ruanjian/workspace/project_v/wedb/src -g -DCHECK_PTHREAD_RETURN_VALUE -D_FILE_OFFSET_BITS=64 -march=native -rdynamic -g -o CMakeFiles/wedb.dir/lsm/bloom_filter.cc.o -c /home/ruanjian/workspace/project_v/wedb/lsm/bloom_filter.cc",
+  "file": "/home/ruanjian/workspace/project_v/wedb/lsm/bloom_filter.cc"
+},
+{
+  "directory": "/home/ruanjian/workspace/project_v/wedb/build",
+  "command": "/usr/bin/g++  -I/home/ruanjian/workspace/project_v/wedb/./inc -I/home/ruanjian/workspace/project_v/wedb/./extern_inc -I/home/ruanjian/workspace/project_v/wedb/lsm -I/home/ruanjian/workspace/project_v/wedb/src -g -DCHECK_PTHREAD_RETURN_VALUE -D_FILE_OFFSET_BITS=64 -march=native -rdynamic -g -o CMakeFiles/wedb.dir/lsm/sstable.cc.o -c /home/ruanjian/workspace/project_v/wedb/lsm/sstable.cc",
+  "file": "/home/ruanjian/workspace/project_v/wedb/lsm/sstable.cc"
+},
+{
+  "directory": "/home/ruanjian/workspace/project_v/wedb/build",
+  "command": "/usr/bin/g++  -I/home/ruanjian/workspace/project_v/wedb/./inc -I/home/ruanjian/workspace/project_v/wedb/./extern_inc -I/home/ruanjian/workspace/project_v/wedb/lsm -I/home/ruanjian/workspace/project_v/wedb/src -g -DCHECK_PTHREAD_RETURN_VALUE -D_FILE_OFFSET_BITS=64 -march=native -rdynamic -g -o CMakeFiles/wedb.dir/lsm/memory_db.cc.o -c /home/ruanjian/workspace/project_v/wedb/lsm/memory_db.cc",
+  "file": "/home/ruanjian/workspace/project_v/wedb/lsm/memory_db.cc"
+}
+]

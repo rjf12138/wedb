@@ -1,141 +1,67 @@
 #include "memory_db.h"
 
-RecordBlock::RecordBlock(void)
-:seq(0),
-type(DBOperationType_Add)
+
+KeyValueBlock::KeyValueBlock(void)
+:mark_(0)
 {
 }
 
-RecordBlock::~RecordBlock(void)
-{}
-
-/*
-比较规则：
-    首先按照字典序比较用户定义的key（RecordBlock::data），若用户定义key值大，整个internalKey就大；
-    若用户定义的key相同，则序列号大的internalKey（RecordBlock::seq）值就小；
-*/
-int 
-RecordBlock::compare(const RecordBlock &rhs, bool is_only_key) const
+KeyValueBlock::KeyValueBlock(const std::string &key, const basic::ByteBuffer& value)
+:mark_(0),
+key_(key),
+value_(value)
 {
-    if (rhs.key.data_size() > this->key.data_size()) {
-        return -1;
-    } else if (rhs.key.data_size() < this->key.data_size()) {
-        return 1;
-    } else {
-        auto &rhs_data = rhs.key;
-        for (int i = 0; i < this->key.data_size(); ++i) {
-            if (rhs_data[i] > this->key[i]) {
-                return -1;
-            } else if (rhs_data[i] < this->key[i]) {
-                return 1;
-            }
-        }
+}
 
-        if (is_only_key == true) {
-            if (rhs.seq > this->seq) {
-                return -1;
-            } else if (rhs.seq < this->seq) {
-                return 1;
-            }
-        }
+KeyValueBlock::~KeyValueBlock(void)
+{
+}
+
+bool 
+KeyValueBlock::put(const std::string &key, const basic::ByteBuffer& value)
+{
+    if (key.length() > MAX_TWO_BYTE_LENGTH || value.data_size() > MAX_THREE_BYTE_LENGTH) {
+        return false;
     }
+    key_ = key;
+    value_ = value;
 
-    return 0; // 相等
+    return 0;
 }
 
-basic::ByteBuffer 
-RecordBlock::to_record(void)
+std::string &
+KeyValueBlock::key(void)
 {
-    // |  key  | type(1byte) |
-    basic::ByteBuffer buffer(key);
-    int64_t tmp_data = 0x00;
-    tmp_data = seq << 8 | type;
-    buffer.write_int64(tmp_data);
 
-    return buffer;
+}
+
+basic::ByteBuffer& 
+KeyValueBlock::value(void)
+{
+
 }
 
 void 
-RecordBlock::from_record(basic::ByteBuffer buffer)
+KeyValueBlock::set_mark(EKeyValueMarkType type, bool value, EValueLengthExtendType value_len_extend_type)
 {
-    if (buffer.data_size() <= 8) {
-        return ;// 小于seq和type的大小说明读写错了
-    }
 
-    auto start_iter = buffer.begin();
-    buffer.get_data(this->key, start_iter, buffer.data_size() - 8);
+}
 
-    int64_t tmp_data = 0x00;
-    buffer.read_int64(tmp_data);
+void 
+KeyValueBlock::reset(void)
+{
 
-    type = static_cast<DBOperationType>(tmp_data & 0xff);
-    seq = static_cast<uint32_t>(tmp_data >> 8);
+}
 
-    return ;
+basic::ByteBuffer 
+KeyValueBlock::to_block(void)
+{
+
 }
 
 bool 
-RecordBlock::operator<(const RecordBlock &rblk) const
+KeyValueBlock::from_block(const basic::ByteBuffer &block)
 {
-    return compare(rblk) == -1;
+
 }
-
-bool 
-RecordBlock::operator>(const RecordBlock &rblk) const
-{
-    return compare(rblk) == 1;
-}
-
-bool 
-RecordBlock::operator==(const RecordBlock &rblk) const
-{
-    return compare(rblk) == 0;
-}
-
-bool 
-RecordBlock::operator!=(const RecordBlock &rblk) const
-{
-    return compare(rblk) != 0;
-}
-
-///////////////////////// Memory database /////////////////////////////////
-MemoryDB::MemoryDB(void)
-:seq_(0)
-{}
-
-MemoryDB::~MemoryDB(void)
-{}
-
-bool 
-MemoryDB::put(const basic::ByteBuffer &key, const basic::ByteBuffer &value)
-{
-    RecordBlock block;
-    block.key = key;
-    block.seq = ++seq_;
-    block.type = DBOperationType_Add;
-
-    return mem_db_.put(block, basic::ByteBuffer()) != mem_db_.end();
-}
-
-
-bool 
-MemoryDB::remove(const basic::ByteBuffer &key)
-{
-    RecordBlock block;
-    block.key = key;
-    block.seq = ++seq_;
-    block.type = DBOperationType_Remove;
-
-    return mem_db_.put(block, basic::ByteBuffer()) != mem_db_.end();
-}
-
-// // 检查记录是否存在
-// bool 
-// MemoryDB::find(const basic::ByteBuffer &key)
-// {
-//     return mem_db_.get(key) == mem_db_.end();
-// }
-
-// // 获取记录的值
-// basic::ByteBuffer* 
-// MemoryDB::get(const basic::ByteBuffer &key);
+    

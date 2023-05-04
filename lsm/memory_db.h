@@ -4,69 +4,72 @@
 #include "basic/byte_buffer.h"
 #include "data_structure/data_struct.h"
 
-enum DBOperationType {
+enum EDBOperationType {
     DBOperationType_Add,
     DBOperationType_Modify,
     DBOperationType_Remove,
 };
 
-/*
-    用户定义的key：这个key值也就是原生的key值；
-    序列号：leveldb中，每一次写操作都有一个sequence number，标志着写入操作的先后顺序。
-           由于在leveldb中，可能会有多条相同key的数据项同时存储在数据库中，因此需要有一个序列号来标识这些数据项的新旧情况。
-           序列号最大的数据项为最新值；
-    类型：标志本条数据项的类型，为更新还是删除；
-*/
+//
+//1. 扩展位：用于扩展mark字节作用，扩展内容不应超过一个字节所能表达的长度范围，扩展内容设定和解析自定义
+//2. key长度扩展: 默认key的长度最大不能超过一个字节所能表示的范围，设置该位后，key的长度范围是两个字节能表示的范围
+//3. 
+//4. value长度扩展: 3和4表示值得长度，00：一个字节表示长度，01：两个字节表示长度，10：3个字节表示长度。
+//	（注：虽然值的最大长度能用3个字节表示，不过单个value的最大不能超过16MB。234位会根据内容长度自动设置）
+//5. 压缩位：该位设置后会对value进行压缩
+//6. 校验位：该位设置后，会对关键字和值进行校验检查内容是否正确（CRC校验）
+//7. 操作表示位：表示当前值是增加，删除。 0：增加, 1: 删除。（这两位必须设置）
+//8. 保留
 
-class RecordBlock {
-public:
-    RecordBlock(void);
-    ~RecordBlock(void);
-
-    // 当前类大于传入参数返回：1, 相等返回：0， 小于返回：-1
-    int compare(const RecordBlock &lrv, bool is_only_key = false) const;
-    // 将所有属性转成一条写入记录
-    basic::ByteBuffer to_record(void);
-    // 将一条记录转成RecordBlock
-    void from_record(basic::ByteBuffer buffer);
-
-public:
-    bool operator<(const RecordBlock &rblk) const;
-    bool operator>(const RecordBlock &rblk) const;
-    bool operator==(const RecordBlock &rblk) const;
-    bool operator!=(const RecordBlock &rblk) const;
-
-public:
-    basic::ByteBuffer key;
-    uint32_t seq;
-    DBOperationType type;
+enum EKeyValueMarkType {
+    EKeyValueMarkType_Extend = 0,
+    EKeyValueMarkType_ExtendKeyLength = 1,
+    EKeyValueMarkType_ExtendValueLength = 2,
+    EKeyValueMarkType_Compress = 4,
+    EKeyValueMarkType_Check = 5,
+    EKeyValueMarkType_Operation = 6,
+    EKeyValueMarkType_Reserved = 7,
 };
 
-class MemoryDB {
+enum EValueLengthExtendType {
+    EValueLengthExtendType_1bit,
+    EValueLengthExtendType_2bit,
+    EValueLengthExtendType_3bit,
+};
+
+#define MAX_ONE_BYTE_LENGTH     0xFF
+#define MAX_TWO_BYTE_LENGTH     0xFFFF
+#define MAX_THREE_BYTE_LENGTH   0xFFFFFF
+
+
+class KeyValueBlock {
 public:
-    MemoryDB(void);
-    ~MemoryDB(void);
+    KeyValueBlock(void);
+    KeyValueBlock(const std::string &key, const basic::ByteBuffer& value);
+    ~KeyValueBlock(void);
 
-    // 放入一条记录
-    bool put(const basic::ByteBuffer &key, const basic::ByteBuffer &value);
-    // 移除一条记录
-    bool remove(const basic::ByteBuffer &key);
+    // 放入一个键值对
+    bool put(const std::string &key, const basic::ByteBuffer& value);
 
-    // // 检查记录是否存在
-    // bool find(const basic::ByteBuffer &key);
-    // // 获取记录的值
-    // basic::ByteBuffer* get(const basic::ByteBuffer &key);
-
-    // 设置一个之前的的seqence
-    void set_last_seq(uint32_t seq) {seq_ = seq;}
+    // 获取关键字
+    std::string &key(void);
+    // 获取值
+    basic::ByteBuffer& value(void);
+    // 设置mark标志位
+    void set_mark(EKeyValueMarkType type, bool value, EValueLengthExtendType value_len_extend_type = EValueLengthExtendType_1bit);
     
+    // 重置键值对
+    void reset(void);
+
+    // 生成一个键值数据块
+    basic::ByteBuffer to_block(void);
+    // 从键值数据块获取数据
+    bool from_block(const basic::ByteBuffer &block);
+
 private:
-    basic::ByteBuffer to_stream(void) {}
-    void from_stream(void) {}
+    uint8_t mark_;
 
-public:
-    ds::SkipList<RecordBlock, basic::ByteBuffer> mem_db_;
-    uint32_t seq_;
+    std::string key_;
+    basic::ByteBuffer value_;
 };
-
 #endif
