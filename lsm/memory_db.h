@@ -2,6 +2,7 @@
 #define __MEMORY_DB_H__
 
 #include "basic/byte_buffer.h"
+#include "basic/err_handle.h"
 #include "data_structure/data_struct.h"
 
 enum EDBOperationType {
@@ -67,9 +68,16 @@ public:
     bool from_block(const basic::ByteBuffer &block);
 
 private:
+    void set_bit(uint8_t pos, uint8_t value, uint8_t bit_len);
+    uint8_t get_bit(uint8_t pos, uint8_t bit_len);
+
+private:
     uint8_t mark_;
 
     std::string key_;
     basic::ByteBuffer value_;
+
+    // 错误处理
+    basic::ErrHandle err_handle_;
 };
 #endif
