@@ -33,6 +33,7 @@ enum EKeyValueMarkType {
 };
 
 enum EValueLengthExtendType {
+    EValueLengthExtendType_0bit = 0,
     EValueLengthExtendType_1bit = 1,
     EValueLengthExtendType_2bit = 2,
     EValueLengthExtendType_3bit = 3,
@@ -53,14 +54,14 @@ public:
     bool put(const std::string &key, const basic::ByteBuffer& value);
 
     // 获取关键字
-    std::string &key(void);
+    basic::ByteBuffer& key(void);
     // 获取值
     basic::ByteBuffer& value(void);
 
     // 设置mark_中某段位置的比特位
-    inline void set_bit(uint8_t pos, uint8_t value, uint8_t bit_len);
+    inline void set_bit(uint8_t mark, uint8_t pos, uint8_t value, uint8_t bit_len);
     // 获取mark_某段位置的比特位
-    inline uint8_t get_bit(uint8_t pos, uint8_t bit_len);
+    inline uint8_t get_bit(uint8_t mark, uint8_t pos, uint8_t bit_len);
     
     // 设置校验
     void check_crc16(void) {}
@@ -73,17 +74,21 @@ public:
     void reset(void);
 
     // 生成一个键值数据块
-    basic::ByteBuffer to_stream(void);
+    basic::ByteBuffer to_block(void);
     // 从键值数据块获取数据
-    bool from_stream(const basic::ByteBuffer &block);
+    bool from_block(basic::ByteBuffer &block);
+    // 打印流数据
+    void print_block(basic::ByteBuffer &block);
+
+private:
+
 
 private:
     uint8_t mark_;
     uint16_t crc16_;
 
-    std::string key_;
+    basic::ByteBuffer key_;
     basic::ByteBuffer value_;
-
     basic::ByteBuffer extend_data_;
 };
 #endif
