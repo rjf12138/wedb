@@ -2,7 +2,9 @@
 #include "error_code.h"
 
 #include "basic/logger.h"
+#include "algorithm/algorithm.h"
 
+#define DEFAULT_CRC16_VALUE     0xF245E // 用于crc占位，当计算完成之后这个值改为计算的crc值
 
 KeyValueBlock::KeyValueBlock(void)
 :mark_(0)
@@ -62,16 +64,18 @@ KeyValueBlock::reset(void)
 basic::ByteBuffer 
 KeyValueBlock::to_block(void)
 {
-    // 流格式： | mark | 校验 （默认检查）| 扩展内容长度（可选） | 扩展内容(可选) | key_length | key | value_length  | value |
+    // 流格式：  | mark | 消息包长度 | 关键字长度 | 关键字 | 值 | 校验和 （默认检查）|
+    // 知道消息包长度和关键字长度就知道了值得长度，校验和占用固定长度
     basic::ByteBuffer buffer;
-
-    // 写入mark标志字节
-    buffer.write_int8(mark_);
 
     // 写入crc校验
     if (this->get_bit(mark_, EKeyValueMarkType_Check, 1) != 0) {
+        crc16_ = DEFAULT_CRC16_VALUE;
         buffer.write_bytes(&crc16_, 2);
     }
+
+    // 写入mark标志字节
+    buffer.write_int8(mark_);
 
     // 是否写入扩展内容
     if (this->get_bit(mark_, EKeyValueMarkType_Extend, 1) != 0) {
@@ -105,6 +109,11 @@ KeyValueBlock::to_block(void)
         buffer.write_bytes(&value_size, 3); // 用3个字节表示值长度
     }
     buffer += value_;
+
+    basic::buffptr data_ptr = buffer.get_read_buffer_ptr();
+    crc16_ = algorithm::crc16_maxim(reinterpret_cast<uint8_t*>(data_ptr), buffer.data_size());
+
+    return buffer;
 }
 
 bool 
@@ -219,6 +228,7 @@ KeyValueBlock::from_block(basic::ByteBuffer &block)
     this->set_err_code(ERROR_OK);
     return true;
 }
+
 // 打印块内容和解决CRC
 void 
 KeyValueBlock::print_block(basic::ByteBuffer &block)
@@ -247,7 +257,7 @@ uint8_t
 KeyValueBlock::get_bit(uint8_t mark, uint8_t pos, uint8_t bit_len)
 {
     if (bit_len > 8 || bit_len <= 0) {
-        return ;
+        return 0;
     }
 
     // 创建一个bit_len长度的掩码 mask，用于获取 pos 位置的比特位的值

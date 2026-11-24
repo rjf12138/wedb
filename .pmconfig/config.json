@@ -1,0 +1,76 @@
+{
+  "name": "wedb",
+  "version": "0.1.0",
+  "path": "/home/ruanjian/workspace/project/wedb",
+  "uuid": "461b229f-552d-4582-88cd-d561f3ac1678",
+  "build_system": "cmake",
+  "cmake_minimum_version": "3.10",
+  "language": "CXX",
+  "cxx_standard": 14,
+  "source_dirs": [
+    "src",
+    "lsm"
+  ],
+  "include_dirs": [
+    "inc"
+  ],
+  "extern_inc_dir": "extern_inc",
+  "lib_dir": "lib",
+  "output_dir": "output",
+  "main_file": "utils_test.cc",
+  "build_mode": "debug",
+  "generate_type": "executable",
+  "dependencies": [
+    {
+      "name": "algorithm",
+      "version": "0.1.1",
+      "lib_type": "static"
+    },
+    {
+      "name": "basic",
+      "version": "0.1.1",
+      "lib_type": "static"
+    },
+    {
+      "name": "data_structure",
+      "version": "0.1.1",
+      "lib_type": "header-only"
+    },
+    {
+      "name": "gtest",
+      "version": "1.14.0",
+      "lib_type": "static"
+    }
+  ],
+  "deps": {
+    "libs": [
+      "algorithm",
+      "basic",
+      "gtest",
+      "pthread"
+    ],
+    "lib_dirs": [],
+    "inc_dirs": [],
+    "src_dirs": []
+  },
+  "build_options": {
+    "debug": {
+      "defines": [
+        "DEBUG"
+      ],
+      "optimization": "-O0 -Wall"
+    },
+    "release": {
+      "defines": [
+        "NDEBUG"
+      ],
+      "optimization": "-O2 -Wall"
+    }
+  },
+  "targets": [
+    {
+      "name": "wedb",
+      "type": "executable"
+    }
+  ]
+}

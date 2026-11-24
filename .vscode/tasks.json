@@ -5,12 +5,12 @@
             {
                 "type": "shell",
                 "label": "compile script",
-                "command": "project",
+                "command": "pm",
                 "args": [
                     "-r"
                 ],
                 "options": {
-                    "cwd": "/home/ruanjian/workspace/project_v/wedb"
+                    "cwd": "/home/ruanjian/workspace/project/wedb"
                 },
                 "group": {
                     "kind": "build",

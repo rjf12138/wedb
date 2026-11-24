@@ -4,7 +4,9 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/inc",
                 "${workspaceFolder}/extern_inc",
+                "${workspaceFolder}/src",
                 "${workspaceFolder}/lsm"
             ],
             "defines": [],
