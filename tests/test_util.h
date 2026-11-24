@@ -17,7 +17,8 @@ inline std::string temp_path(const std::string &name)
 inline void remove_tree(const std::string &path)
 {
     std::string command = "rm -rf '" + path + "'";
-    (void)std::system(command.c_str());
+    const int result = std::system(command.c_str());
+    (void)result;
 }
 
 } // namespace wedb_test

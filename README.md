@@ -1,8 +1,16 @@
 # wedb
 
+当前版本：**v0.1.0**（首个对外版本）
+
 一个自用级、LevelDB 风格的 LSM KV 数据库，使用 C++14 实现。
 
-设计文档见 [`doc/design.md`](doc/design.md)。
+文档：
+
+- [`doc/design.md`](doc/design.md)：项目设计与实现说明
+- [`doc/leveldb-tech-summary.md`](doc/leveldb-tech-summary.md)：LevelDB 技术全景总结
+- [`CHANGELOG.md`](CHANGELOG.md)：版本记录
+- [`TODO.md`](TODO.md)：后续事项与优先级
+- [`VERSION`](VERSION)：当前版本号
 
 ## 特性
 
@@ -13,7 +21,8 @@
 - `MANIFEST` 文件列表与启动恢复
 - 整层合并 compaction，L5 丢弃 tombstone
 - 单进程、单写锁、同步 flush/compaction
-- gtest 单元测试：Entry / Bloom / WAL / SSTable / DB
+- gtest 单元测试：Entry / Bloom / MemTable / WAL / SSTable / DB
+- 自带 release 脚本，生成可分发归档
 
 ## 依赖
 
@@ -35,6 +44,7 @@ pm -r                 # 增量构建
 output/debug/bin/wedb
 output/debug/bin/entry_test
 output/debug/bin/bloom_test
+output/debug/bin/memtable_test
 output/debug/bin/wal_test
 output/debug/bin/sstable_test
 output/debug/bin/db_test
@@ -103,7 +113,7 @@ Put/Delete
 说明：
 
 - **不依赖 `system` 库**：`lsm/env.*` 直接封装 POSIX `open/write/pread/fsync/rename/mkdir/flock`。
-- **WAL 一定落盘**：`Put` 先写 `LOG-<n>`；进程重启会重放 WAL。
+- **WAL 写入文件**：`Put` 先写 `LOG-<n>`；进程重启会重放 WAL。
 - **`sync` 选项**：默认 `sync=false`，依赖 OS page cache；`sync=true` 或 `put(..., true)` 会在每条写后 `fsync`。  
   `sync=false` 时进程崩溃通常可由 page cache 恢复，但机器掉电可能丢最后一段写入。
 - **SSTable/Manifest** 写入始终执行 `fsync`，并用临时文件 + `rename` 保证不出现半个文件。
@@ -114,9 +124,40 @@ Put/Delete
 ```bash
 ./output/debug/bin/entry_test
 ./output/debug/bin/bloom_test
+./output/debug/bin/memtable_test
 ./output/debug/bin/wal_test
 ./output/debug/bin/sstable_test
 ./output/debug/bin/db_test
+```
+
+## 发布
+
+```bash
+# 生成 dist/wedb-0.1.0-linux-x86_64.tar.gz + .sha256
+./scripts/release.sh
+```
+
+发布归档包含：
+
+- release 二进制 `wedb`
+- `README.md` / `CHANGELOG.md` / `TODO.md` / `VERSION`
+- `doc/design.md` / `doc/leveldb-tech-summary.md`
+
+## 目录结构
+
+```text
+wedb/
+├── lsm/           # 存储引擎实现
+├── main/          # CLI 入口
+├── tests/         # gtest 测试
+├── doc/           # 设计、LevelDB 总结、参考资料
+├── legacy/        # 早期实验代码（不参与构建）
+├── scripts/       # release 等脚本
+├── .pmconfig/     # PM 项目配置
+├── README.md
+├── CHANGELOG.md
+├── TODO.md
+└── VERSION
 ```
 
 ## 限制

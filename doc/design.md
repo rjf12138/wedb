@@ -5,8 +5,9 @@
 > 适用仓库：`/home/ruanjian/workspace/project/wedb`  
 > 设计原则：单进程、单写锁、同步 flush/compaction；功能完整、实现简洁、正确性优先；不做未验证的优化。
 > 关联材料：
-> - `doc/currnet_doc.txt`：最早的 LSM 分层/合并设计（历史稿）
-> - `doc/develop/技术选型.txt`：LevelDB 风格 SSTable block 布局（参考稿）
+> - `doc/legacy/currnet_doc.txt`：最早的 LSM 分层/合并设计（历史稿）
+> - `doc/legacy/技术选型.txt`：LevelDB 风格 SSTable block 布局（参考稿）
+> - `doc/leveldb-tech-summary.md`：LevelDB 技术全景总结
 > - `doc/leveldb-handbook/`：LevelDB 原理手册
 > - `doc/leveldb_note.txt`、`doc/Dynamic-Sized-Nonblocking-Hash-Tables.pdf`：并发哈希表/无锁数据结构笔记（暂不进入主路径）
 
@@ -193,7 +194,7 @@ v1 做到以下几点即可认为“能用”：
 
 - v1 统一用 **CRC32（4 字节）**，用于 Entry、WAL record、SSTable block、Footer、Manifest。
 - 读取时默认校验；校验失败返回 `Corruption`，不返回半条数据。
-- CRC 覆盖范围必须写进 `doc/format.md`，例如 Entry 的 CRC 覆盖 `mark..value`。
+- CRC 覆盖范围必须写进本文第 5 节（未来拆出 `doc/format.md`），例如 Entry 的 CRC 覆盖 `mark..value`。
 - `algorithm` 库的 `crc32(uint8_t*, uint16_t)` 长度参数是 16 位，单次最多 64KB；SSTable block（4KB）没问题，WAL/Manifest 大记录需要分块更新或新增增量 CRC 接口。
 
 ### 4.6 编码与字节序
@@ -279,7 +280,7 @@ public:
 
 - 每个模块一个 gtest 可执行目标：
   - `entry_test`、`bloom_test`、`wal_test`、`sstable_test`、`db_test`（compaction 在 `db_test` 中覆盖）。
-- 测试入口放在 `main/`，通过 `.pmconfig/config.json` 的 `targets` 配置。
+- 测试入口放在 `tests/`，通过 `.pmconfig/config.json` 的 `targets` 配置。
 - 随机对比：随机 `Put/Delete` 与 `std::map` 对比，定期重开 DB。
 - 崩溃测试：截断 WAL/SSTable/Manifest，验证恢复行为。
 - Fuzz：随机字节喂给 `from_block` / SSTable reader，只能返回错误，不能崩溃。
@@ -476,7 +477,7 @@ file 1 5 234567 200 6161 7a7a
 
 - `format_version = 1` 写入 footer 和 manifest。
 - 读取到未知 version：拒绝打开，返回 `Unsupported`，不要尝试猜测。
-- 修改 Entry/SSTable/WAL/Manifest 任一格式，必须提升 `format_version`，并在 `doc/format.md` 记录变更。
+- 修改 Entry/SSTable/WAL/Manifest 任一格式，必须提升 `format_version`，并在本文第 5 节（未来 `doc/format.md`）记录变更。
 - v1 不做自动迁移；格式升级时新建 DB 或写离线转换工具。
 
 ---
@@ -656,9 +657,7 @@ lsm/
 ├── table_reader.h/.cc    # SSTable 读取、Get、Iterator
 ├── version.h/.cc         # FileMetaData / Version / 层级
 ├── manifest.h/.cc        # MANIFEST 读写、原子替换
-├── compaction.h/.cc      # CompactionPicker + 归并
-├── db.h                  # 对外 API
-├── db_impl.h/.cc         # DB 实现、写路径、读路径、flush、recovery
+├── db.h/.cc              # DB 实现：写路径、读路径、flush、compaction、recovery
 ├── iterator.h/.cc        # 归并迭代器
 └── env.h/.cc             # 文件/目录/fsync 抽象（POSIX 实现）
 ```
@@ -666,29 +665,30 @@ lsm/
 测试入口：
 
 ```text
-main/
+tests/
 ├── entry_test.cc
 ├── bloom_test.cc
+├── memtable_test.cc
 ├── wal_test.cc
 ├── sstable_test.cc
-├── db_test.cc
-└── compaction_test.cc
+└── db_test.cc
 ```
 
 `.pmconfig/config.json` 的 `targets` 示例：
 
 ```json
 "targets": [
-  { "name": "wedb", "type": "executable", "source_files": ["main/utils_test.cc"] },
-  { "name": "entry_test", "type": "executable", "source_files": ["main/entry_test.cc"] },
-  { "name": "bloom_test", "type": "executable", "source_files": ["main/bloom_test.cc"] },
-  { "name": "wal_test", "type": "executable", "source_files": ["main/wal_test.cc"] },
-  { "name": "sstable_test", "type": "executable", "source_files": ["main/sstable_test.cc"] },
-  { "name": "db_test", "type": "executable", "source_files": ["main/db_test.cc"] }
+  { "name": "wedb", "type": "executable", "source_files": ["main/wedb_main.cc"] },
+  { "name": "entry_test", "type": "executable", "source_files": ["tests/entry_test.cc"] },
+  { "name": "bloom_test", "type": "executable", "source_files": ["tests/bloom_test.cc"] },
+  { "name": "memtable_test", "type": "executable", "source_files": ["tests/memtable_test.cc"] },
+  { "name": "wal_test", "type": "executable", "source_files": ["tests/wal_test.cc"] },
+  { "name": "sstable_test", "type": "executable", "source_files": ["tests/sstable_test.cc"] },
+  { "name": "db_test", "type": "executable", "source_files": ["tests/db_test.cc"] }
 ]
 ```
 
-> PM 的 `source_dirs` 会把 `lsm/*.cc` 编进每个 target；测试 main 放在 `main/`，每个 target 只指定自己的 `source_files`。当 `targets` 多于一个时，`generate_type` 不生效，每个 target 用各自 `type`。
+> PM 的 `source_dirs` 会把 `lsm/*.cc` 编进每个 target；测试入口放在 `tests/`，CLI 放在 `main/`，每个 target 只指定自己的 `source_files`。当 `targets` 多于一个时，`generate_type` 不生效，每个 target 用各自 `type`。
 
 ---
 
@@ -703,7 +703,7 @@ main/
 - 本文件评审并定稿；
 - 补一份 `doc/format.md`（可从第 5 节拆出，附十六进制示例）；
 - 在 `.pmconfig/config.json` 中加测试 targets；
-- 新建 `main/entry_test.cc`、`bloom_test.cc` 等空测试文件，保证能构建。
+- 新建 `tests/entry_test.cc`、`bloom_test.cc` 等空测试文件，保证能构建。
 
 **验收：**
 
@@ -1134,19 +1134,20 @@ pm deps list wedb             # 查看依赖
 ## 附录 B：参考资料
 
 - `doc/leveldb-handbook/`：LevelDB 基本概念、读写、日志、MemTable、SSTable、Cache、Bloom、Compaction、Version。
-- `doc/develop/技术选型.txt`：LevelDB SSTable block 布局参考。
-- `doc/currnet_doc.txt`：最早的 7 层/tiered compaction 设计。
+- `doc/leveldb-tech-summary.md`：LevelDB 技术全景总结（本文档的扩展阅读）。
+- `doc/legacy/技术选型.txt`：LevelDB SSTable block 布局参考（历史）。
+- `doc/legacy/currnet_doc.txt`：最早的 7 层/tiered compaction 设计（历史）。
 - `doc/leveldb_note.txt`：wait-free 哈希集合论文笔记（后续并发缓存参考）。
 - `doc/Dynamic-Sized-Nonblocking-Hash-Tables.pdf`：动态大小非阻塞哈希表论文（后续并发缓存参考）。
 
 ## 附录 C：文档维护规则
 
 - 本文档是 wedb 的设计单一来源（single source of truth）。
-- `doc/currnet_doc.txt`、`doc/develop/技术选型.txt` 保留为历史材料；与本文冲突时，以本文为准。
-- 格式细节以 `doc/format.md` 为准；本文第 5 节是概览。
+- `doc/legacy/currnet_doc.txt`、`doc/legacy/技术选型.txt` 保留为历史材料；与本文冲突时，以本文为准。
+- 格式细节以本文第 5 节为准；后续再拆成独立的 `doc/format.md`。
 - 任何格式变更必须：
   1. 提升 `format_version`；
-  2. 更新 `doc/format.md`；
+  2. 更新格式文档（当前为本文第 5 节）；
   3. 增加兼容/迁移说明；
   4. 补格式测试。
 

@@ -8,17 +8,14 @@
   "language": "CXX",
   "cxx_standard": 14,
   "source_dirs": [
-    "src",
     "lsm"
   ],
-  "include_dirs": [
-    "inc"
-  ],
+  "include_dirs": [],
   "extern_inc_dir": "extern_inc",
   "lib_dir": "lib",
   "output_dir": "output",
   "main_file": "wedb_main.cc",
-  "build_mode": "debug",
+  "build_mode": "release",
   "generate_type": "executable",
   "dependencies": [
     {
@@ -79,42 +76,42 @@
       "name": "entry_test",
       "type": "executable",
       "source_files": [
-        "main/entry_test.cc"
+        "tests/entry_test.cc"
       ]
     },
     {
       "name": "bloom_test",
       "type": "executable",
       "source_files": [
-        "main/bloom_test.cc"
+        "tests/bloom_test.cc"
       ]
     },
     {
       "name": "memtable_test",
       "type": "executable",
       "source_files": [
-        "main/memtable_test.cc"
+        "tests/memtable_test.cc"
       ]
     },
     {
       "name": "wal_test",
       "type": "executable",
       "source_files": [
-        "main/wal_test.cc"
+        "tests/wal_test.cc"
       ]
     },
     {
       "name": "sstable_test",
       "type": "executable",
       "source_files": [
-        "main/sstable_test.cc"
+        "tests/sstable_test.cc"
       ]
     },
     {
       "name": "db_test",
       "type": "executable",
       "source_files": [
-        "main/db_test.cc"
+        "tests/db_test.cc"
       ]
     }
   ]
