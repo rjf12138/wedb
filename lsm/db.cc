@@ -530,7 +530,7 @@ bool DB::scan(const std::string &start_key, const std::string &end_key,
     }
 
     std::vector<std::unique_ptr<Iterator> > children;
-    children.push_back(std::unique_ptr<Iterator>(new MemTableIterator(&active_.entries())));
+    children.push_back(active_.new_iterator());
     for (std::map<uint64_t, std::unique_ptr<TableReader> >::iterator iter = readers_.begin();
          iter != readers_.end(); ++iter) {
         children.push_back(iter->second->new_iterator());
@@ -594,11 +594,13 @@ bool DB::write_active_table_locked(FileMetaData *meta)
         return fail(ERROR_Code_IO, std::string("open table builder failed: ") + path);
     }
 
-    const MemTable::Table &entries = active_.entries();
-    for (MemTable::Table::const_iterator iter = entries.begin(); iter != entries.end(); ++iter) {
-        if (!builder.add(iter->second)) {
+    std::unique_ptr<Iterator> iter = active_.new_iterator();
+    iter->seek("");
+    while (iter->valid()) {
+        if (!builder.add(iter->entry())) {
             return fail(ERROR_Code_IO, std::string("write table failed: ") + path);
         }
+        iter->next();
     }
 
     if (!builder.finish(meta)) {

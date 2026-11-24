@@ -20,7 +20,7 @@
 
 **自用版取舍**：单进程、单写锁、同步 flush/compaction；只做完整基础功能（Put/Get/Delete/Scan/WAL/SSTable/Manifest/整层合并）；不做 Block Cache、Snapshot、WriteBatch、压缩、B+ 树、lock-free。代码量和概念数量都要控制，优先保证“不出错”。
 
-**当前阶段**：v1 已实现并通过 entry/bloom/wal/sstable/db 五组测试；代码在 `lsm/`，CLI 在 `main/wedb_main.cc`。早期 `memory_db.*` / `sstable.*` 原型已删除，Bloom/Entry 已重写，MemTable 采用 `std::map`。
+**当前阶段**：v1 已实现并通过 entry/bloom/memtable/wal/sstable/db 六组测试；代码在 `lsm/`，CLI 在 `main/wedb_main.cc`。早期 `memory_db.*` / `sstable.*` 原型已删除，Bloom/Entry 已重写，MemTable 使用修复后的 `ds::SkipList`（data_structure 0.1.2）。
 
 **推荐顺序**：
 
@@ -97,7 +97,7 @@ v1 做到以下几点即可认为“能用”：
 | BloomFilter | ✅ 已重写 | 动态 bitset、序列化、零假阴性测试 |
 | Entry 编解码 | ✅ 已重写 | `lsm/entry.*`，mark/seq/op/CRC |
 | WAL | ✅ 已实现 | `lsm/wal.*`，追加、重放、torn tail |
-| MemTable | ✅ 已实现 | `lsm/memtable.*`，`std::map` + seq |
+| MemTable | ✅ 已实现 | `lsm/memtable.*`，`ds::SkipList`（data_structure 0.1.2）+ seq |
 | SSTable | ✅ 已实现 | `lsm/block.*`、`table_builder.*`、`table_reader.*` |
 | Manifest/Version | ✅ 已实现 | `lsm/manifest.*`、`version.*` |
 | DB API | ✅ 已实现 | `lsm/db.*`，Put/Get/Delete/Scan/Flush/Compact |
@@ -107,19 +107,22 @@ v1 做到以下几点即可认为“能用”：
 
 ### 2.2 实现选择（与早期设计的差异）
 
-- **MemTable 用 `std::map`（红黑树）**，不依赖 `data_structure` 的 SkipList。  
-  原因：`std::map` 行为确定、没有层高/erase 悬空风险，符合“自用、简洁、不出问题”的目标。SkipList 以后可以作为可选替换。
+- **MemTable 用 `data_structure` 的 `ds::SkipList`**，并把该库升级到 **0.1.2**：
+  - 修复 `header_.level` / `random_height` 的数组越界；
+  - 修复 `erase()` 返回已释放节点的问题；
+  - 新增 `clear()`，初始化节点 `next` 指针；
+  - MemTable 传入自定义的 `BytewiseComparator`，避免 `std::string` 有符号字符问题。
 - **Manifest 用行式文本 `MANIFEST`**，不是 JSON。  
   原因：`basic::WeJson` 的数字统一存成 `double`，uint64 文件编号/序号会丢精度；行式文本更简单、可读、无精度问题。
 - **单进程、单写锁、同步 flush/compaction**，不引入后台线程。
 - **整层合并**：某层文件数达到阈值就把该层全部文件合并成一个输出文件。
-- **DB 依赖**：`algorithm`、`basic`、`gtest`；已移除 `data_structure`。
+- **DB 依赖**：`algorithm`、`basic`、`data_structure 0.1.2`、`gtest`。
 - **目录/文件**：`MANIFEST`、`LOCK`、`LOG-<n>`、`L0..L5/<n>.sst`。
 
 ### 2.3 构建与测试
 
 - 构建：`pm build wedb -r` / `pm -r`。
-- 测试 target：`entry_test`、`bloom_test`、`wal_test`、`sstable_test`、`db_test`。
+- 测试 target：`entry_test`、`bloom_test`、`memtable_test`、`wal_test`、`sstable_test`、`db_test`。
 - CLI：`./output/debug/bin/wedb <db_dir> put|get|del|scan ...`。
 - `CMakeLists.txt` 由 pm 生成，不应手改；构建配置改 `.pmconfig/config.json`。
 
@@ -129,7 +132,7 @@ v1 做到以下几点即可认为“能用”：
 
 | LevelDB 概念 | wedb v1 | 说明 |
 |---|---|---|
-| MemTable | `MemTable` 基于 `std::map` | 活跃内存表（红黑树）；SkipList 可选替换 |
+| MemTable | `MemTable` 基于 `ds::SkipList` | 活跃内存表（data_structure 0.1.2） |
 | Immutable MemTable | 同步 flush，不单独保留队列 | 冻结后立即 flush |
 | WAL / LOG | `LOG-xxxxxx` | 写入先落 WAL，再进 MemTable |
 | SSTable | data/filter/index/footer | 见第 5 节格式 |
@@ -155,7 +158,7 @@ v1 做到以下几点即可认为“能用”：
 
 ### 4.1 命名与层数
 
-- 内存：`MemTable`（活跃）基于 `std::map`；v1 同步 flush，不保留多个 Immutable MemTable。
+- 内存：`MemTable`（活跃）基于 `ds::SkipList`；v1 同步 flush，不保留多个 Immutable MemTable。
 - 磁盘：`L0` ~ `L5`，共 6 层。
 - `kNumLevels = 6`，`kL0 = 0`，`kLastLevel = 5`。
 - L0 是 flush 输出层；L1-L5 每层最多保留 4 个文件，层内文件可能重叠（整层合并模型）。
@@ -530,7 +533,7 @@ DB::get
   → active 改为 immutable，放入 immutable 队列
   → 创建新的 active MemTable + 新 LOG
   → 同步 flush 最老的 immutable：
-       1. 遍历 MemTable（std::map 已按 key 排序）
+       1. 遍历 MemTable（SkipList 已按 key 排序）
        2. TableBuilder 写 data blocks / filter / index / footer 到 L0/<number>.sst.tmp
        3. fsync + rename 为 L0/<number>.sst
        4. 更新 manifest：L0 增加该文件、log_number 前进
@@ -541,7 +544,7 @@ DB::get
 
 - v1 同步 flush（写在 `Put` 返回前），不做后台线程；这是最简单也最容易验证的模型。
 - v1 一个 MemTable flush 输出一个 SSTable，不做文件切分；MemTable 阈值默认 5MB，文件不会过大。
-- flush 时 MemTable 内 key 唯一（std::map 赋值覆盖），输出 SSTable 不需要再去重。
+- flush 时 MemTable 内 key 唯一（SkipList put 覆盖），输出 SSTable 不需要再去重。
 
 ### 6.4 Compaction
 
@@ -645,7 +648,7 @@ lsm/
 ├── comparator.h/.cc      # BytewiseComparator
 ├── entry.h/.cc           # Entry 结构 + 序列化/反序列化（替代 memory_db.*）
 ├── bloom_filter.h/.cc    # 动态 BloomFilter + 序列化
-├── memtable.h/.cc        # MemTable（std::map）、内存统计
+├── memtable.h/.cc        # MemTable（ds::SkipList）、内存统计
 ├── wal.h/.cc             # LogWriter / LogReader
 ├── block_builder.h/.cc   # data block 构建
 ├── block_reader.h/.cc    # data block 解析
@@ -722,19 +725,25 @@ main/
    - CRC 可选；
    - seq/op；
    - 测试所有长度边界、截断、CRC 损坏。
-**说明：** v1 的 MemTable 使用 `std::map`，不依赖 `data_structure` 的 SkipList，因此 P1 不包含 SkipList 修复。
+3. 修复 `data_structure` 的 SkipList：
+   - `header_.level = MAX_LEVEL - 1`；
+   - `random_height` 限制在 `0..MAX_LEVEL-1`；
+   - `erase` 返回下一个节点，不返回已释放节点；
+   - 新增 `clear()`，节点 `next` 初始化为 `nullptr`；
+   - 重新打包 `data_structure 0.1.2` 并更新 wedb。
 
 **验收：**
 
 - Entry 边界测试全部通过；
 - Bloom 10 万 key 零假阴性；
-- `std::map` MemTable 随机插入/查询/删除无 ASAN 错误。
+- SkipList 5 万随机插入/查询/删除/遍历通过；
+- `pm deps list wedb` 显示 `data_structure 0.1.2`。
 
 ### P2：MemTable + WAL（约 1 周）
 
 **任务：**
 
-- `MemTable` 基于 `std::map`，支持 `Insert/Get/Contains`；
+- `MemTable` 基于 `ds::SkipList`，支持 `Insert/Get/Contains`；
 - 统计内存占用；
 - `WAL` LogWriter/LogReader；
 - WAL replay；
@@ -877,7 +886,7 @@ main/
 
 1. **核心算法成熟**：MemTable + WAL + SSTable + Manifest + Compaction 是 LevelDB/RocksDB 已验证的架构，`doc/leveldb-handbook` 已经给出各模块的职责和关键流程。
 2. **基础组件基本齐了**：
-   - v1 用 `std::map` 做 MemTable（简单、无 SkipList 边界风险）；
+   - v1 用修复后的 `ds::SkipList` 做 MemTable；
    - `basic::ByteBuffer` 可做二进制 buffer；
    - `algorithm` 有 MurmurHash、CRC；
    - `system` 里也有 File/Directory/Thread/Mutex，但 `File` 没有 fsync，且会引入 ncurses；v1 用 `lsm/env.h` 包一层 POSIX。
@@ -914,7 +923,7 @@ main/
 
 因此正确的使用方式是：
 
-1. v1 用 `std::map` 把 LSM 主流程做对；以后可用 SkipList 或并发哈希表替换；
+1. v1 用修复后的 `ds::SkipList` 把 LSM 主流程做对；以后可再考虑并发哈希表；
 2. 等 SSTable 和基础读写稳定、确实需要并发优化时，再考虑把某个并发哈希表替换成论文里的 wait-free 实现；
 3. 不要把“实现 wait-free 哈希表”当成 v1 的阻塞项，否则主线会被拖住。
 
@@ -928,10 +937,10 @@ main/
 | 崩溃一致性 | 丢数据/半文件 | WAL 先行、临时文件 + fsync + rename、故障注入测试 |
 | Compaction 规则错误 | 旧值复活/删除丢失 | seq 判新旧；整层合并；L5 整层合并时丢弃 tombstone；随机对比测试 |
 | 并发设计过早 | 死锁/竞态/难调试 | v1 单锁同步，不引入后台线程 |
-| 依赖库 bug | 随机崩溃 | v1 用 std::map 规避 SkipList；补 ASAN 和边界测试 |
+| 依赖库 bug | 随机崩溃 | 已修复 data_structure 0.1.2 的 SkipList；补 ASAN 和边界测试 |
 | 性能不达标 | 大库不可用 | v1 先正确；Cache/Benchmark 放到 v1 之后 |
 | 范围蔓延 | 长期做不完 | 冻结 B+ 树、lock-free、压缩、分布式 |
-| PM 依赖版本冲突 | 头文件/库版本不一致 | v1 只依赖 algorithm/basic/gtest，已移除 data_structure |
+| PM 依赖版本冲突 | 头文件/库版本不一致 | v1 依赖 algorithm/basic/data_structure 0.1.2/gtest，版本已固定 |
 
 ### 10.6 能做到什么规模
 
@@ -960,7 +969,7 @@ main/
 
 | 操作 | 预期量级 | 主要瓶颈 |
 |---|---|---|
-| MemTable Get | 微秒级 | CPU（std::map 查找） |
+| MemTable Get | 微秒级 | CPU（SkipList 查找） |
 | SSTable Get（index/filter/block 都在 OS page cache） | 几十~几百微秒 | index 查找 + block 解析 |
 | SSTable Get（冷数据，SSD） | 约 0.1~1 ms/文件 | 磁盘随机读；最坏要查 20+ 个文件 |
 | SSTable Get（冷数据，HDD） | 毫秒级/文件 | 磁盘寻道；不适合大量随机点查 |
@@ -1043,7 +1052,7 @@ main/
 | WriteBatch | v1 是否做 | 不做；后续加，能提升吞吐和原子性 |
 | 并发 | 单锁 vs 读写锁/后台线程 | v1 单锁同步；不做后台线程 |
 | 文件 API | 直接用 POSIX vs `system` 包 | 建议 `lsm/env.h` 包一层 POSIX；`system::File` 没有 fsync，且会引入 ncurses 依赖 |
-| 依赖范围 | 是否保留 data_structure | v1 使用 std::map，已移除 data_structure；algorithm/basic/gtest 足够 |
+| 依赖范围 | data_structure 版本 | v1 使用修复后的 data_structure 0.1.2 + algorithm + basic + gtest |
 
 ---
 
@@ -1054,19 +1063,19 @@ main/
 - [x] 重写 `BloomFilter`：真实 key 拷贝、动态 bitset、序列化、零假阴性测试。
 - [x] 重写 `Entry`：mark 先算后写、seq/op、CRC、边界/截断测试。
 - [x] 实现 `coding` / `comparator` / `env`（POSIX）。
-- [x] 实现 `MemTable`（std::map）+ `WAL` + 重放。
+- [x] 实现 `MemTable`（修复后的 ds::SkipList）+ `WAL` + 重放。
 - [x] 实现 `Block` / `TableBuilder` / `TableReader`（data/filter/index/footer）。
 - [x] 实现 `Version` / `Manifest`（行式文本、原子替换）。
 - [x] 实现 `DB`：Put/Get/Delete/Scan/Flush/Compact、恢复、LOCK。
 - [x] 实现整层合并 compaction，L5 丢弃 tombstone。
 - [x] 添加 `entry_test` / `bloom_test` / `wal_test` / `sstable_test` / `db_test`。
 - [x] 添加 `main/wedb_main.cc` CLI。
-- [x] 移除 `data_structure` 依赖，更新 `.pmconfig/config.json` targets。
+- [x] 修复并升级 `data_structure 0.1.2`，MemTable 改用 `ds::SkipList`；更新 `.pmconfig/config.json` targets。
 
 ### 12.2 后续可选
 
 - 将第 5 节拆成独立的 `doc/format.md`，补十六进制示例和格式兼容说明。
-- 用 SkipList 替换 std::map（保持 MemTable 接口不变）。
+- 为 SkipList 增加 lower_bound，减少 `seek` 的线性扫描（当前 v1 从 begin 开始）。
 - 增加 LRU Block Cache、后台 compaction、压缩、Snapshot。
 - 增加更多崩溃点测试、Fuzz、ASAN/UBSAN 全量跑。
 - 数据量变大后再考虑 leveled compaction。
@@ -1108,7 +1117,7 @@ pm deps list wedb             # 查看依赖
 
 | 术语 | 含义 |
 |---|---|
-| MemTable | 活跃内存表；v1 用 std::map（红黑树） |
+| MemTable | 活跃内存表；v1 用 ds::SkipList |
 | Immutable MemTable | 已冻结、等待 flush 的内存表 |
 | WAL | Write-Ahead Log，预写日志 |
 | SSTable | Sorted String Table，有序不可变磁盘表 |

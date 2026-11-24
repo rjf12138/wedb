@@ -61,6 +61,11 @@ add_executable(bloom_test
     ${SRC_FILES}
 )
 
+add_executable(memtable_test
+    ${CMAKE_SOURCE_DIR}/main/memtable_test.cc
+    ${SRC_FILES}
+)
+
 add_executable(wal_test
     ${CMAKE_SOURCE_DIR}/main/wal_test.cc
     ${SRC_FILES}
@@ -94,6 +99,12 @@ target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
 target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
 
+# Include dirs for target memtable_test
+target_include_directories(memtable_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
+target_include_directories(memtable_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
+target_include_directories(memtable_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(memtable_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
+
 # Include dirs for target wal_test
 target_include_directories(wal_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
 target_include_directories(wal_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
@@ -126,6 +137,12 @@ target_link_libraries(entry_test
     pthread
 )
 target_link_libraries(bloom_test
+    algorithm
+    basic
+    gtest
+    pthread
+)
+target_link_libraries(memtable_test
     algorithm
     basic
     gtest

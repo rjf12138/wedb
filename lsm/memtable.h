@@ -5,51 +5,67 @@
 #include "entry.h"
 #include "iterator.h"
 
+#include "data_structure/skip_list.h"
+
 #include <cstddef>
 #include <cstdint>
-#include <map>
+#include <memory>
 #include <string>
 
 namespace wedb {
 
-// v1 用 std::map 做内存表：行为等价于有序红黑树，简单且没有 SkipList 的边界风险。
+// ds::SkipList 要求三路比较（-1/0/1），不能直接用 std::map 的 bool 比较器。
+struct MemTableComparator {
+    int32_t operator()(const std::string &left, const std::string &right) const
+    {
+        BytewiseComparator compare;
+        return static_cast<int32_t>(compare.compare(left, right));
+    }
+};
+
+class MemTableIterator;
+
 class MemTable {
 public:
-    typedef std::map<std::string, Entry, BytewiseComparator> Table;
+    typedef ds::SkipList<std::string, Entry, MemTableComparator> Table;
 
     MemTable(void);
     ~MemTable(void);
 
     bool add(const Entry &entry);
-    bool get(const std::string &key, Entry *entry) const;
+    bool get(const std::string &key, Entry *entry);
 
-    bool empty(void) const { return table_.empty(); }
-    size_t size(void) const { return table_.size(); }
+    bool empty(void) const { return table_->empty(); }
+    size_t size(void) const { return static_cast<size_t>(table_->size()); }
     size_t approximate_memory_usage(void) const { return memory_usage_; }
     uint64_t max_seq(void) const { return max_seq_; }
     void clear(void);
 
-    const Table &entries(void) const { return table_; }
+    std::unique_ptr<Iterator> new_iterator(void);
 
 private:
-    Table table_;
+    MemTable(const MemTable &);
+    MemTable &operator=(const MemTable &);
+
+private:
+    std::unique_ptr<Table> table_;
     size_t memory_usage_;
     uint64_t max_seq_;
 };
 
 class MemTableIterator : public Iterator {
 public:
-    explicit MemTableIterator(const MemTable::Table *table);
+    explicit MemTableIterator(MemTable::Table *table);
     virtual ~MemTableIterator(void) {}
 
     void seek(const std::string &key) override;
     void next(void) override;
     bool valid(void) const override { return valid_; }
-    const Entry &entry(void) const override { return iter_->second; }
+    const Entry &entry(void) const override { return iter_.value(); }
 
 private:
-    const MemTable::Table *table_;
-    MemTable::Table::const_iterator iter_;
+    MemTable::Table *table_;
+    mutable MemTable::Table::Iterator iter_;
     bool valid_;
 };
 

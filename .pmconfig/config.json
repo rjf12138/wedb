@@ -35,6 +35,11 @@
       "name": "gtest",
       "version": "1.14.0",
       "lib_type": "static"
+    },
+    {
+      "name": "data_structure",
+      "version": "0.1.2",
+      "lib_type": "header-only"
     }
   ],
   "deps": {
@@ -82,6 +87,13 @@
       "type": "executable",
       "source_files": [
         "main/bloom_test.cc"
+      ]
+    },
+    {
+      "name": "memtable_test",
+      "type": "executable",
+      "source_files": [
+        "main/memtable_test.cc"
       ]
     },
     {

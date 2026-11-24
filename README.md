@@ -8,7 +8,7 @@
 
 - `Put / Get / Delete / Scan / Flush / Compact / Close`
 - WAL 预写日志 + 崩溃重放
-- MemTable（`std::map`）+ SSTable
+- MemTable（`ds::SkipList`，data_structure 0.1.2）+ SSTable
 - data block / index block / BloomFilter / footer
 - `MANIFEST` 文件列表与启动恢复
 - 整层合并 compaction，L5 丢弃 tombstone
@@ -18,7 +18,7 @@
 ## 依赖
 
 - C++14、CMake 3.10+
-- 通过 pm 管理：`algorithm`、`basic`、`gtest`
+- 通过 pm 管理：`algorithm`、`basic`、`data_structure 0.1.2`、`gtest`
 
 ## 构建
 
@@ -75,7 +75,7 @@ db.compact();
 db.close();
 ```
 
-## 数据目录
+## 数据目录与持久化
 
 ```text
 <db_dir>/
@@ -86,6 +86,28 @@ db.close();
 ├── L1/<n>.sst
 └── ...
 ```
+
+写路径：
+
+```text
+Put/Delete
+  → 追加到 LOG-<n>（WAL）
+  → 写入 MemTable
+  → MemTable 超过阈值时 flush
+      → 写 L0/<n>.sst.tmp
+      → fsync + rename 成 L0/<n>.sst
+      → 原子更新 MANIFEST
+      → 删除旧 WAL
+```
+
+说明：
+
+- **不依赖 `system` 库**：`lsm/env.*` 直接封装 POSIX `open/write/pread/fsync/rename/mkdir/flock`。
+- **WAL 一定落盘**：`Put` 先写 `LOG-<n>`；进程重启会重放 WAL。
+- **`sync` 选项**：默认 `sync=false`，依赖 OS page cache；`sync=true` 或 `put(..., true)` 会在每条写后 `fsync`。  
+  `sync=false` 时进程崩溃通常可由 page cache 恢复，但机器掉电可能丢最后一段写入。
+- **SSTable/Manifest** 写入始终执行 `fsync`，并用临时文件 + `rename` 保证不出现半个文件。
+- `close()` 不强制把 MemTable flush 成 SSTable；当前数据已在 WAL 中，下次 `open()` 会重放并 flush。
 
 ## 测试
 
