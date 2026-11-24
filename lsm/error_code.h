@@ -1,17 +1,18 @@
 #ifndef __ERROR_CODE_H__
 #define __ERROR_CODE_H__
 
-// 每种错误码最多100个，例如100, 1表示KeyValueBlock的错误类型，后两位则是这个类的错误类型
+// 每种错误码按模块分段，方便定位。
 
 #define ERROR_OK                            0           // 无错误返回
-// KeyValueBlock 类错误码
-#define ERROR_Code_LengthTooLong            100         // 关键字或是值得长度超过最大范围
-#define ERROR_Code_BlockShortToNomal        101         // 解析关键字/值块失败,块太小了
-#define ERROR_Code_ReadCRCFailed            102         // 读取CRC数据失败
-#define ERROR_Code_CheckCRCFailed           103         // 校验CRC数据失败
-#define ERROR_Code_ReadExtendDataFailed     104         // 读取扩展内容失败
-#define ERROR_Code_ReadKeyFailed            105         // 读取关键字失败
-#define ERROR_Code_ReadValueFailed          106         // 读取值失败
-#define ERROR_Code_ReadValueLengthFailed    107         // 读取值长度失败
+
+// 通用 LSM 错误码
+#define ERROR_Code_IO                       200         // 文件/目录/POSIX 操作失败
+#define ERROR_Code_Corruption               201         // CRC、长度、格式校验失败
+#define ERROR_Code_NotFound                 202         // key 不存在
+#define ERROR_Code_InvalidArgument          203         // 空 key、超长 key/value、参数错误
+#define ERROR_Code_Locked                   204         // DB 已被其它进程打开
+#define ERROR_Code_Unsupported              205         // 未知格式版本/未实现特性
+#define ERROR_Code_AlreadyExists            206         // 重复创建/文件编号冲突
+#define ERROR_Code_Internal                 207         // 内部状态错误
 
 #endif

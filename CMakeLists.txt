@@ -47,7 +47,32 @@ link_directories(${CMAKE_SOURCE_DIR}/lib/debug)
 
 # Build targets
 add_executable(wedb
-    ${CMAKE_SOURCE_DIR}/main/utils_test.cc
+    ${CMAKE_SOURCE_DIR}/main/wedb_main.cc
+    ${SRC_FILES}
+)
+
+add_executable(entry_test
+    ${CMAKE_SOURCE_DIR}/main/entry_test.cc
+    ${SRC_FILES}
+)
+
+add_executable(bloom_test
+    ${CMAKE_SOURCE_DIR}/main/bloom_test.cc
+    ${SRC_FILES}
+)
+
+add_executable(wal_test
+    ${CMAKE_SOURCE_DIR}/main/wal_test.cc
+    ${SRC_FILES}
+)
+
+add_executable(sstable_test
+    ${CMAKE_SOURCE_DIR}/main/sstable_test.cc
+    ${SRC_FILES}
+)
+
+add_executable(db_test
+    ${CMAKE_SOURCE_DIR}/main/db_test.cc
     ${SRC_FILES}
 )
 
@@ -57,8 +82,68 @@ target_include_directories(wedb PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
 target_include_directories(wedb PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(wedb PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
 
+# Include dirs for target entry_test
+target_include_directories(entry_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
+target_include_directories(entry_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
+target_include_directories(entry_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(entry_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
+
+# Include dirs for target bloom_test
+target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
+target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
+target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(bloom_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
+
+# Include dirs for target wal_test
+target_include_directories(wal_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
+target_include_directories(wal_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
+target_include_directories(wal_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(wal_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
+
+# Include dirs for target sstable_test
+target_include_directories(sstable_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
+target_include_directories(sstable_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
+target_include_directories(sstable_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(sstable_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
+
+# Include dirs for target db_test
+target_include_directories(db_test PRIVATE ${CMAKE_SOURCE_DIR}/inc)
+target_include_directories(db_test PRIVATE ${CMAKE_SOURCE_DIR}/extern_inc)
+target_include_directories(db_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(db_test PRIVATE ${CMAKE_SOURCE_DIR}/lsm)
+
 # Legacy dependencies
 target_link_libraries(wedb
+    algorithm
+    basic
+    gtest
+    pthread
+)
+target_link_libraries(entry_test
+    algorithm
+    basic
+    gtest
+    pthread
+)
+target_link_libraries(bloom_test
+    algorithm
+    basic
+    gtest
+    pthread
+)
+target_link_libraries(wal_test
+    algorithm
+    basic
+    gtest
+    pthread
+)
+target_link_libraries(sstable_test
+    algorithm
+    basic
+    gtest
+    pthread
+)
+target_link_libraries(db_test
     algorithm
     basic
     gtest

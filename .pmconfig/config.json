@@ -17,7 +17,7 @@
   "extern_inc_dir": "extern_inc",
   "lib_dir": "lib",
   "output_dir": "output",
-  "main_file": "utils_test.cc",
+  "main_file": "wedb_main.cc",
   "build_mode": "debug",
   "generate_type": "executable",
   "dependencies": [
@@ -30,11 +30,6 @@
       "name": "basic",
       "version": "0.1.1",
       "lib_type": "static"
-    },
-    {
-      "name": "data_structure",
-      "version": "0.1.1",
-      "lib_type": "header-only"
     },
     {
       "name": "gtest",
@@ -70,7 +65,45 @@
   "targets": [
     {
       "name": "wedb",
-      "type": "executable"
+      "type": "executable",
+      "source_files": [
+        "main/wedb_main.cc"
+      ]
+    },
+    {
+      "name": "entry_test",
+      "type": "executable",
+      "source_files": [
+        "main/entry_test.cc"
+      ]
+    },
+    {
+      "name": "bloom_test",
+      "type": "executable",
+      "source_files": [
+        "main/bloom_test.cc"
+      ]
+    },
+    {
+      "name": "wal_test",
+      "type": "executable",
+      "source_files": [
+        "main/wal_test.cc"
+      ]
+    },
+    {
+      "name": "sstable_test",
+      "type": "executable",
+      "source_files": [
+        "main/sstable_test.cc"
+      ]
+    },
+    {
+      "name": "db_test",
+      "type": "executable",
+      "source_files": [
+        "main/db_test.cc"
+      ]
     }
   ]
 }
